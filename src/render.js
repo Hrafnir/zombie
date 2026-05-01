@@ -67,25 +67,99 @@
 
   EM.drawWorld = function drawWorld() {
     const ctx = EM.ctx;
+    const camX = EM.state.camera.x;
+    const camY = EM.state.camera.y;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
 
-    ctx.fillStyle = "#17281b";
-    ctx.fillRect(EM.state.camera.x, EM.state.camera.y, window.innerWidth, window.innerHeight);
+    ctx.fillStyle = "#18311f";
+    ctx.fillRect(camX, camY, width, height);
 
-    const grid = 96;
-    const startX = Math.floor(EM.state.camera.x / grid) * grid;
-    const startY = Math.floor(EM.state.camera.y / grid) * grid;
+    const tile = 64;
+    const startX = Math.floor(camX / tile) * tile;
+    const startY = Math.floor(camY / tile) * tile;
 
-    for (let y = startY; y < EM.state.camera.y + window.innerHeight + grid; y += grid) {
-      for (let x = startX; x < EM.state.camera.x + window.innerWidth + grid; x += grid) {
-        const value = Math.abs(Math.sin(x * 0.013 + y * 0.021));
+    for (let y = startY; y < camY + height + tile; y += tile) {
+      for (let x = startX; x < camX + width + tile; x += tile) {
+        const n1 = Math.sin(x * 0.0123 + y * 0.0091);
+        const n2 = Math.sin(x * 0.031 + y * 0.017);
+        const n3 = Math.cos(x * 0.018 - y * 0.011);
 
-        ctx.fillStyle = value > 0.55 ? "#1c3020" : "#142319";
-        ctx.fillRect(x, y, grid, grid);
+        let fill = "#1c3822";
+        if (n1 > 0.4) fill = "#214126";
+        else if (n1 < -0.35) fill = "#15301c";
 
-        if (value > 0.78) {
-          ctx.fillStyle = "#29482b";
+        ctx.fillStyle = fill;
+        ctx.fillRect(x, y, tile, tile);
+
+        // myke jordfelt
+        if (n2 > 0.72) {
+          ctx.fillStyle = "rgba(94, 72, 38, 0.16)";
           ctx.beginPath();
-          ctx.arc(x + 30, y + 40, 2, 0, Math.PI * 2);
+          ctx.ellipse(x + 32, y + 34, 18, 10, 0.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // lys gressvariasjon
+        if (n3 > 0.62) {
+          ctx.fillStyle = "rgba(88, 133, 77, 0.16)";
+          ctx.beginPath();
+          ctx.ellipse(x + 18, y + 18, 12, 8, -0.2, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.ellipse(x + 46, y + 41, 10, 7, 0.4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // små stein/gress-prikker
+        const d = Math.abs(Math.sin(x * 0.047 + y * 0.053));
+        if (d > 0.78) {
+          ctx.fillStyle = "rgba(219, 233, 199, 0.08)";
+          ctx.fillRect(x + 11, y + 10, 2, 2);
+          ctx.fillRect(x + 33, y + 26, 2, 2);
+          ctx.fillRect(x + 47, y + 15, 1, 1);
+          ctx.fillRect(x + 20, y + 45, 2, 2);
+        }
+
+        // litt gress-strå
+        if (d < 0.12) {
+          ctx.strokeStyle = "rgba(143, 187, 118, 0.12)";
+          ctx.lineWidth = 1;
+
+          ctx.beginPath();
+          ctx.moveTo(x + 22, y + 48);
+          ctx.lineTo(x + 24, y + 43);
+          ctx.lineTo(x + 26, y + 48);
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.moveTo(x + 40, y + 38);
+          ctx.lineTo(x + 42, y + 32);
+          ctx.lineTo(x + 44, y + 38);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // veldig svak stor-noise for å bryte opp mønsteret
+    const patch = 160;
+    const patchStartX = Math.floor(camX / patch) * patch;
+    const patchStartY = Math.floor(camY / patch) * patch;
+
+    for (let y = patchStartY; y < camY + height + patch; y += patch) {
+      for (let x = patchStartX; x < camX + width + patch; x += patch) {
+        const v = Math.sin(x * 0.006 + y * 0.004);
+
+        if (v > 0.44) {
+          ctx.fillStyle = "rgba(51, 84, 47, 0.10)";
+          ctx.beginPath();
+          ctx.ellipse(x + 80, y + 80, 58, 34, 0.25, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (v < -0.46) {
+          ctx.fillStyle = "rgba(82, 60, 36, 0.07)";
+          ctx.beginPath();
+          ctx.ellipse(x + 84, y + 78, 50, 28, -0.2, 0, Math.PI * 2);
           ctx.fill();
         }
       }
@@ -101,7 +175,7 @@
     const startY = Math.floor(EM.state.camera.y / grid) * grid;
 
     ctx.save();
-    ctx.strokeStyle = "rgba(255,255,255,0.07)";
+    ctx.strokeStyle = "rgba(255,255,255,0.06)";
     ctx.lineWidth = 1;
 
     for (let x = startX; x < EM.state.camera.x + window.innerWidth + grid; x += grid) {
@@ -148,102 +222,6 @@
     if (EM.selectedBuild) EM.drawBuildGhost();
   };
 
-  EM.drawNode = function drawNode(node) {
-    const ctx = EM.ctx;
-    const def = EM.nodeDef(node.type);
-
-    ctx.save();
-    ctx.translate(node.x, node.y);
-    ctx.rotate(node.rotation || 0);
-
-    if (node.type === "tree") {
-      ctx.fillStyle = "#5a3a22";
-      ctx.fillRect(-5, 4, 10, 30);
-
-      ctx.fillStyle = def.color;
-
-      for (const size of [28, 22, 16]) {
-        ctx.beginPath();
-        ctx.moveTo(0, -size - 10);
-        ctx.lineTo(-size, size / 2);
-        ctx.lineTo(size, size / 2);
-        ctx.closePath();
-        ctx.fill();
-      }
-    } else if (node.type === "puddle") {
-      ctx.fillStyle = def.color;
-      ctx.beginPath();
-      ctx.ellipse(0, 0, 26, 12, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.strokeStyle = "#9ee8ff";
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    } else if (node.type === "bush") {
-      ctx.fillStyle = def.color;
-
-      const leaves = [
-        [-11, 0, 11],
-        [-4, -8, 12],
-        [8, -4, 11],
-        [10, 8, 10],
-        [-5, 9, 11],
-      ];
-
-      for (const [x, y, r] of leaves) {
-        ctx.beginPath();
-        ctx.arc(x, y, r, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      ctx.fillStyle = "#b43a45";
-
-      for (const [x, y] of [[4, -4], [11, 3], [-7, 6]]) {
-        ctx.beginPath();
-        ctx.arc(x, y, 3, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    } else {
-      ctx.fillStyle = def.color;
-      ctx.beginPath();
-      ctx.moveTo(-22, 16);
-      ctx.lineTo(-14, -10);
-      ctx.lineTo(4, -20);
-      ctx.lineTo(23, -4);
-      ctx.lineTo(18, 19);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.fillStyle = "rgba(255, 255, 255, 0.18)";
-      ctx.beginPath();
-      ctx.moveTo(-14, -10);
-      ctx.lineTo(4, -20);
-      ctx.lineTo(-3, 2);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.fillStyle = "rgba(0, 0, 0, 0.22)";
-      ctx.beginPath();
-      ctx.moveTo(-3, 2);
-      ctx.lineTo(23, -4);
-      ctx.lineTo(18, 19);
-      ctx.closePath();
-      ctx.fill();
-
-      if (node.type === "oreRock") {
-        ctx.fillStyle = "#c87541";
-
-        for (const [x, y, r] of [[-8, -3, 3], [7, -8, 4], [12, 6, 3], [-1, 10, 3]]) {
-          ctx.beginPath();
-          ctx.arc(x, y, r, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-    }
-
-    ctx.restore();
-  };
-
   EM.drawLightGlowsInWorld = function drawLightGlowsInWorld() {
     const darkness = getDarknessAlpha();
     if (darkness <= 0) return;
@@ -269,182 +247,6 @@
       ctx.arc(building.x, building.y, radius, 0, Math.PI * 2);
       ctx.fill();
     }
-  };
-
-  EM.drawBuilding = function drawBuilding(building) {
-    const ctx = EM.ctx;
-    const def = EM.BUILDINGS[building.type];
-    const size = EM.buildingSize(building.type, building.rotation || 0);
-
-    ctx.save();
-    ctx.translate(building.x, building.y);
-    ctx.rotate(building.rotation || 0);
-
-    ctx.fillStyle = "rgba(0,0,0,.25)";
-    ctx.beginPath();
-    ctx.ellipse(0, size.h * 0.35, size.w * 0.6, 8, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = def.color;
-
-    if (building.type.includes("Wall")) {
-      ctx.fillRect(-def.w / 2, -def.h / 2, def.w, def.h);
-
-      ctx.strokeStyle = "#24160d";
-      for (let x = -def.w / 2 + 8; x < def.w / 2; x += 12) {
-        ctx.beginPath();
-        ctx.moveTo(x, -def.h / 2);
-        ctx.lineTo(x, def.h / 2);
-        ctx.stroke();
-      }
-    } else if (building.type === "spikes") {
-      for (let x = -18; x <= 18; x += 12) {
-        ctx.beginPath();
-        ctx.moveTo(x - 5, 18);
-        ctx.lineTo(x, -20);
-        ctx.lineTo(x + 5, 18);
-        ctx.fill();
-      }
-    } else if (building.type === "campfire") {
-      ctx.fillStyle = "#57331f";
-      ctx.fillRect(-18, 8, 36, 8);
-
-      ctx.fillStyle = "#e76f28";
-      ctx.beginPath();
-      ctx.moveTo(-10, 12);
-      ctx.lineTo(0, -24);
-      ctx.lineTo(12, 12);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.fillStyle = "#ffd166";
-      ctx.beginPath();
-      ctx.moveTo(-5, 10);
-      ctx.lineTo(1, -12);
-      ctx.lineTo(7, 10);
-      ctx.closePath();
-      ctx.fill();
-    } else if (building.type === "torch") {
-      ctx.fillStyle = "#6f4324";
-      ctx.fillRect(-3, -2, 6, 22);
-
-      ctx.fillStyle = "#ffb347";
-      ctx.beginPath();
-      ctx.moveTo(-8, -2);
-      ctx.lineTo(0, -24);
-      ctx.lineTo(8, -2);
-      ctx.closePath();
-      ctx.fill();
-    } else {
-      ctx.fillRect(-def.w / 2, -def.h / 2, def.w, def.h);
-      ctx.strokeStyle = "#111";
-      ctx.strokeRect(-def.w / 2, -def.h / 2, def.w, def.h);
-    }
-
-    ctx.restore();
-
-    if (building.job || building.hp < building.maxHp || building.type === "rainCollector") {
-      ctx.save();
-      ctx.translate(building.x, building.y);
-
-      if (building.job) {
-        ctx.fillStyle = "#2a1a16";
-        ctx.fillRect(-size.w / 2, -size.h / 2 - 12, size.w, 4);
-        ctx.fillStyle = "#ffd166";
-        ctx.fillRect(-size.w / 2, -size.h / 2 - 12, size.w * (building.job.t / building.job.total), 4);
-      }
-
-      if (building.type === "rainCollector") {
-        ctx.fillStyle = "#bdefff";
-        ctx.fillRect(-12, 10, (24 * (building.waterStore || 0)) / 8, 5);
-      }
-
-      if (building.hp < building.maxHp) {
-        ctx.fillStyle = "#2a1a16";
-        ctx.fillRect(-size.w / 2, -size.h / 2 - 18, size.w, 4);
-        ctx.fillStyle = "#8fd46e";
-        ctx.fillRect(-size.w / 2, -size.h / 2 - 18, size.w * (building.hp / building.maxHp), 4);
-      }
-
-      ctx.restore();
-    }
-  };
-
-  EM.drawDrop = function drawDrop(drop) {
-    const ctx = EM.ctx;
-
-    ctx.fillStyle = "#f4e7b0";
-    ctx.beginPath();
-    ctx.arc(drop.x, drop.y, 10, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "#111";
-    ctx.font = "10px system-ui";
-    ctx.textAlign = "center";
-    ctx.fillText(EM.itemName(drop.id)[0], drop.x, drop.y + 3);
-
-    if (drop.amount > 1) {
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 10px system-ui";
-      ctx.fillText(String(drop.amount), drop.x + 10, drop.y + 11);
-    }
-  };
-
-  EM.drawZombie = function drawZombie(zombie) {
-    const ctx = EM.ctx;
-    const def = EM.zombieDef(zombie.type);
-
-    ctx.fillStyle = "rgba(0,0,0,.25)";
-    ctx.beginPath();
-    ctx.ellipse(zombie.x, zombie.y + 14, zombie.radius * 1.3, 7, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = def.color;
-    ctx.beginPath();
-    ctx.arc(zombie.x, zombie.y - 8, zombie.radius * 0.8, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillRect(
-      zombie.x - zombie.radius * 0.75,
-      zombie.y,
-      zombie.radius * 1.5,
-      zombie.radius * 1.7
-    );
-
-    if (zombie.hp < zombie.maxHp) {
-      ctx.fillStyle = "#351";
-      ctx.fillRect(zombie.x - 18, zombie.y - 28, 36, 4);
-
-      ctx.fillStyle = "#d35d5d";
-      ctx.fillRect(zombie.x - 18, zombie.y - 28, 36 * (zombie.hp / zombie.maxHp), 4);
-    }
-  };
-
-  EM.drawPlayer = function drawPlayer() {
-    const ctx = EM.ctx;
-    const player = EM.state.player;
-    const angle = Math.atan2(EM.mouse.wy - player.y, EM.mouse.wx - player.x);
-
-    ctx.save();
-    ctx.translate(player.x, player.y);
-    ctx.rotate(angle);
-
-    ctx.fillStyle = player.iframe > 0 ? "#ffe0b0" : "#d5b083";
-    ctx.beginPath();
-    ctx.arc(0, 0, 16, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "#496b42";
-    ctx.fillRect(-7, -11, 16, 22);
-
-    ctx.strokeStyle = "#f1e0a8";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(10, 0);
-    ctx.lineTo(36, 0);
-    ctx.stroke();
-
-    ctx.restore();
   };
 
   EM.drawProjectile = function drawProjectile(projectile) {
@@ -511,7 +313,12 @@
     if (!hasResources && recipe) text = `Mangler: ${EM.missingText(recipe.cost)}`;
     else if (!hasStation && recipe) text = `Må stå ved ${EM.stationName(recipe.station)}`;
 
-    ctx.fillText(text, p.x, p.y - EM.buildingSize(EM.selectedBuild, EM.selectedBuildRotation).h / 2 - 10);
+    ctx.fillText(
+      text,
+      p.x,
+      p.y - EM.buildingSize(EM.selectedBuild, EM.selectedBuildRotation).h / 2 - 10
+    );
+
     ctx.restore();
   };
 
