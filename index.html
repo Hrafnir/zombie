@@ -3,11 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Etter Mørket — Zombie Survival v1.1</title>
+
+  <title>Etter Mørket — Zombie Survival v1.1.1</title>
+
   <meta
     name="description"
     content="Top-down zombie survival-spill klart for GitHub Pages. Ressurser, crafting, bygging, malm, smelting, vann og baseforsvar."
   />
+
   <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -25,7 +28,9 @@
         />
 
         <div class="titleCopy">
-          <p class="eyebrow">Top-down survival • crafting • basebygging • v1.1</p>
+          <p class="eyebrow">
+            Top-down survival • crafting • basebygging • v1.1.1
+          </p>
 
           <h1>Etter Mørket</h1>
 
@@ -41,8 +46,8 @@
           </div>
 
           <div class="tinyNote">
-            Nytt i v1.1: trær, store steiner, malm, hakke, smelter, vannpytter,
-            feltflaske, regnsamler, fakkel, sovepose og flere bygg.
+            v1.1.1: Fikset flimrende busker/malmstein, trygg bygging uten tap av
+            ressurser ved feil plassering, og grønn/rød forhåndsvisning av bygg.
           </div>
         </div>
       </div>
@@ -51,8 +56,10 @@
     <section id="pauseScreen" class="screen">
       <div class="panel modal">
         <h2>Pause</h2>
+
         <p>
-          Spillet lagres automatisk. Du kan også lagre manuelt før du lukker fanen.
+          Spillet lagres automatisk når du pauser. Du kan også lagre manuelt før
+          du lukker fanen.
         </p>
 
         <div class="menuButtons">
@@ -75,17 +82,17 @@
 
           <div>
             <kbd>Shift</kbd>
-            <span>Sprint, bruker stamina</span>
+            <span>Sprint, bruker stamina og lager mer lyd</span>
           </div>
 
           <div>
             <kbd>Mus</kbd>
-            <span>Sikt</span>
+            <span>Sikt og velg plassering for bygg</span>
           </div>
 
           <div>
             <kbd>Venstreklikk</kbd>
-            <span>Angrip / skyt / plasser bygg</span>
+            <span>Angrip / skyt / plasser valgt bygg</span>
           </div>
 
           <div>
@@ -95,17 +102,17 @@
 
           <div>
             <kbd>C</kbd>
-            <span>Crafting</span>
+            <span>Åpne crafting</span>
           </div>
 
           <div>
             <kbd>B</kbd>
-            <span>Byggemeny</span>
+            <span>Åpne byggemeny</span>
           </div>
 
           <div>
             <kbd>I</kbd>
-            <span>Inventory og status</span>
+            <span>Åpne inventory og status</span>
           </div>
 
           <div>
@@ -115,12 +122,12 @@
 
           <div>
             <kbd>1–6</kbd>
-            <span>Velg våpen/verktøy</span>
+            <span>Velg våpen eller verktøy</span>
           </div>
 
           <div>
             <kbd>Space</kbd>
-            <span>Kort dodge</span>
+            <span>Kort dodge bakover fra musepeker</span>
           </div>
 
           <div>
@@ -129,6 +136,11 @@
           </div>
         </div>
 
+        <p>
+          Tips: Lag hakke tidlig. Malmstein krever hakke. Smelter krever
+          arbeidsbenk, og metall åpner for sterkere bygg og våpen.
+        </p>
+
         <button id="closeHelpBtn" class="primary">Tilbake</button>
       </div>
     </section>
@@ -136,6 +148,7 @@
     <section id="gameOverScreen" class="screen">
       <div class="panel modal">
         <h2>Du ble overmannet</h2>
+
         <p id="gameOverStats"></p>
 
         <div class="menuButtons">
@@ -152,7 +165,7 @@
           <span id="dayLabel">Dag 1 • 08:00</span>
         </div>
 
-        <div id="threatPill" class="pill">Trygt dagslys</div>
+        <div id="threatPill" class="pill">Dagslys</div>
       </div>
 
       <div class="bars">
@@ -186,13 +199,14 @@
       <div id="messageLog" class="messageLog"></div>
 
       <div class="miniHelp">
-        C craft • B bygg • I bag • F mat • V vann • H heal • E bruk
+        C craft • B bygg • I bag • F mat • V vann • H heal • E bruk • Esc avbryt
       </div>
     </aside>
 
     <aside id="sidePanel" class="sidePanel hidden" aria-live="polite">
       <div class="sideHeader">
         <h2 id="sidePanelTitle">Panel</h2>
+
         <button id="closePanelBtn" class="iconButton" aria-label="Lukk panel">
           ×
         </button>
