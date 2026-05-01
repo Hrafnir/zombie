@@ -62,6 +62,52 @@
     return "";
   };
 
+  EM.resourceSummary = function resourceSummary() {
+    const important = [
+      "wood",
+      "stone",
+      "ore",
+      "coal",
+      "metal",
+      "scrap",
+      "cloth",
+      "food",
+      "dirtyWater",
+      "water",
+      "herbs",
+      "parts",
+      "ammo",
+      "arrows",
+    ];
+
+    const chips = important
+      .filter((id) => (EM.state.inv[id] || 0) > 0)
+      .map((id) => {
+        return `<span class="resourceChip">${EM.itemName(id)} <b>${EM.state.inv[id]}</b></span>`;
+      })
+      .join("");
+
+    return `
+      <div class="resourceSummary">
+        <strong>Ressurser du har</strong>
+        <div class="resourceChips">
+          ${chips || `<span class="resourceChip empty">Ingen ressurser</span>`}
+        </div>
+      </div>
+    `;
+  };
+
+  EM.costWithInventory = function costWithInventory(cost) {
+    return Object.entries(cost || {})
+      .map(([id, amount]) => {
+        const have = EM.state.inv[id] || 0;
+        const ok = have >= amount;
+
+        return `<span class="${ok ? "costOk" : "costMissing"}">${EM.itemName(id)} ${have}/${amount}</span>`;
+      })
+      .join(" ");
+  };
+
   EM.showInventory = function showInventory() {
     EM.panelMode = "inventory";
 
@@ -90,7 +136,10 @@
       `;
     });
 
-    EM.showPanel("Inventory", EM.tabs("inventory") + weaponRows.join("") + itemRows.join(""));
+    EM.showPanel(
+      "Inventory",
+      EM.tabs("inventory") + EM.resourceSummary() + weaponRows.join("") + itemRows.join("")
+    );
   };
 
   EM.showCrafting = function showCrafting(station = null) {
@@ -109,7 +158,8 @@
     EM.showPanel(
       "Crafting",
       EM.tabs("craft") +
-        `<p class="panelHint">Stasjoner: arbeidsbenk, bål og smelter åpner flere valg.</p>` +
+        EM.resourceSummary() +
+        `<p class="panelHint">Stasjoner: arbeidsbenk, bål og smelter åpner flere valg. Ressurstall vises som du har / kreves.</p>` +
         rows
     );
   };
@@ -125,6 +175,7 @@
     EM.showPanel(
       "Bygging",
       EM.tabs("build") +
+        EM.resourceSummary() +
         `<p class="panelHint">Velg bygg, klikk i verden. R roterer. Esc avbryter. Ressurser trekkes først når plassering er gyldig.</p>` +
         rows
     );
@@ -133,12 +184,19 @@
   EM.recipeRow = function recipeRow(recipe) {
     const ok = EM.canPay(recipe.cost) && EM.stationNear(recipe.station);
 
+    let stationInfo = `Stasjon: ${EM.stationName(recipe.station)}`;
+
+    if (recipe.station && !EM.stationNear(recipe.station)) {
+      stationInfo = `Krever nærhet til ${EM.stationName(recipe.station)}`;
+    }
+
     return `
       <div class="craftRow">
         <div>
           <strong>${recipe.name}</strong>
           <p>${recipe.desc || ""}</p>
-          <small>Koster: ${EM.costText(recipe.cost)} • Stasjon: ${EM.stationName(recipe.station)}</small>
+          <small>${stationInfo}</small>
+          <div class="costLine">${EM.costWithInventory(recipe.cost)}</div>
         </div>
         <button ${ok ? "" : "disabled"} data-craft="${recipe.id}">
           ${ok ? "Lag/velg" : "Mangler"}
@@ -147,25 +205,73 @@
     `;
   };
 
+  EM.stationQueueHtml = function stationQueueHtml(building) {
+    if (!Array.isArray(building.queue)) building.queue = [];
+
+    const activeRecipe = building.job
+      ? EM.REFINING.find((recipe) => recipe.id === building.job.id)
+      : null;
+
+    const activeHtml = activeRecipe
+      ? `
+        <div class="stationJob activeJob">
+          <strong>Pågår:</strong>
+          <span>${activeRecipe.name}</span>
+          <meter min="0" max="100" value="${Math.round((building.job.t / building.job.total) * 100)}"></meter>
+          <small>${Math.round((building.job.t / building.job.total) * 100)}%</small>
+        </div>
+      `
+      : `
+        <div class="stationJob emptyJob">
+          <strong>Pågår:</strong>
+          <span>Ingen aktiv jobb</span>
+        </div>
+      `;
+
+    const queueHtml = building.queue.length
+      ? building.queue
+          .map((job, index) => {
+            const recipe = EM.REFINING.find((r) => r.id === job.id);
+            return `
+              <div class="queueItem">
+                <b>${index + 1}</b>
+                <span>${recipe ? recipe.name : job.id}</span>
+              </div>
+            `;
+          })
+          .join("")
+      : `<div class="queueItem empty"><span>Køen er tom</span></div>`;
+
+    return `
+      <div class="stationQueue">
+        ${activeHtml}
+        <strong>Kø</strong>
+        <div class="queueList">${queueHtml}</div>
+      </div>
+    `;
+  };
+
   EM.showStation = function showStation(building) {
     EM.panelMode = "station";
     EM.selectedStationBuilding = building;
 
+    if (!Array.isArray(building.queue)) building.queue = [];
+
     const relevant = EM.REFINING.filter((recipe) => recipe.station === building.type);
-    const job = building.job ? EM.REFINING.find((recipe) => recipe.id === building.job.id) : null;
 
     const rows = relevant
       .map((recipe) => {
-        const ok = EM.canPay(recipe.cost) && !building.job;
+        const ok = EM.canPay(recipe.cost);
 
         return `
           <div class="craftRow">
             <div>
               <strong>${recipe.name}</strong>
-              <p>Koster: ${EM.costText(recipe.cost)} → Gir: ${EM.costText(recipe.output)}</p>
+              <p>Gir: ${EM.costText(recipe.output)}</p>
+              <div class="costLine">${EM.costWithInventory(recipe.cost)}</div>
             </div>
             <button ${ok ? "" : "disabled"} data-refine="${recipe.id}">
-              ${building.job ? "Opptatt" : "Start"}
+              ${ok ? (building.job ? "Legg i kø" : "Start") : "Mangler"}
             </button>
           </div>
         `;
@@ -180,12 +286,9 @@
     EM.showPanel(
       EM.BUILDINGS[building.type].name,
       EM.tabs("craft") +
+        EM.resourceSummary() +
+        EM.stationQueueHtml(building) +
         repairText +
-        (job
-          ? `<p class="panelHint">Pågår: ${job.name} (${Math.round(
-              (building.job.t / building.job.total) * 100
-            )}%)</p>`
-          : "") +
         rows
     );
   };
@@ -226,7 +329,7 @@
         <li>Lag hakke og finn malm</li>
         <li>Bygg arbeidsbenk og smelter</li>
         <li>Bygg bål/fakler for lys om natten</li>
-        <li>Rens vann eller bygg regnsamler</li>
+        <li>Kø opp arbeid på bål/smelter</li>
         <li>Forsterk basen før natten</li>
       </ul>
     `;
@@ -259,10 +362,13 @@
       EM.showHint(`E: ${EM.nodeDef(node.type).name}`);
     } else if (building) {
       const def = EM.BUILDINGS[building.type];
+      const queueCount = Array.isArray(building.queue) ? building.queue.length : 0;
+      const jobText = building.job || queueCount ? ` • jobb/kø: ${(building.job ? 1 : 0) + queueCount}` : "";
+
       if (building.hp < building.maxHp) {
-        EM.showHint(`E: reparer ${def.name} • X: riv`);
+        EM.showHint(`E: reparer ${def.name}${jobText} • X: riv`);
       } else {
-        EM.showHint(`E: ${def.name} • X: riv`);
+        EM.showHint(`E: ${def.name}${jobText} • X: riv`);
       }
     } else {
       EM.hideHint();
