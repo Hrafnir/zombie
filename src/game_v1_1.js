@@ -1,15 +1,29 @@
-/* Etter Mørket v1.1
-   Utvidet top-down zombie survival:
-   - trær
-   - store steiner
-   - malm
-   - hakke
-   - smelter
-   - vannpytter
-   - feltflaske
-   - regnsamler
-   - mer bygging
-   - lavere zombie-aggro
+/* Etter Mørket v1.1.1
+   Komplett spillfil.
+
+   Fikset:
+   - Bærbusker og malmstein rister ikke lenger.
+   - Bygg trekker ikke ressurser før plassering er gyldig.
+   - Bygg har grønn/rød forhåndsvisning.
+   - Feil plassering koster ikke ressurser.
+
+   Innhold:
+   - Trær
+   - Store steiner
+   - Malmstein
+   - Hakke
+   - Øks
+   - Smelter
+   - Bål
+   - Vannpytter
+   - Skittent/rent vann
+   - Feltflaske
+   - Regnsamler
+   - Vegger
+   - Piggfeller
+   - Fakkel
+   - Sovepose
+   - Flere zombie-typer
 */
 
 (() => {
@@ -479,6 +493,7 @@
   let paused = false;
   let lastTime = performance.now();
   let selectedBuild = null;
+  let selectedBuildRecipe = null;
   let panelMode = null;
   let selectedStationBuilding = null;
 
@@ -568,12 +583,16 @@
   window.addEventListener("resize", resize);
   resize();
 
+  function updateMouseWorld() {
+    mouse.wx = mouse.x + state.camera.x;
+    mouse.wy = mouse.y + state.camera.y;
+  }
+
   function setMouse(event) {
     const rect = canvas.getBoundingClientRect();
     mouse.x = event.clientX - rect.left;
     mouse.y = event.clientY - rect.top;
-    mouse.wx = mouse.x + state.camera.x;
-    mouse.wy = mouse.y + state.camera.y;
+    updateMouseWorld();
   }
 
   window.addEventListener("keydown", (event) => {
@@ -616,11 +635,13 @@
   $("closeHelpBtn").addEventListener("click", () => helpScreen.classList.remove("screen--active"));
   $("resumeBtn").addEventListener("click", () => togglePause(false));
   $("saveBtn").addEventListener("click", saveGame);
+
   $("newGameBtn").addEventListener("click", () => {
     localStorage.removeItem(STORAGE_KEY);
     resetWorld();
     togglePause(false);
   });
+
   $("restartBtn").addEventListener("click", () => {
     gameOverScreen.classList.remove("screen--active");
     resetWorld();
@@ -628,12 +649,14 @@
     hud.classList.remove("hidden");
     requestAnimationFrame(loop);
   });
+
   $("backToTitleBtn").addEventListener("click", () => {
     gameOverScreen.classList.remove("screen--active");
     titleScreen.classList.add("screen--active");
     hud.classList.add("hidden");
     running = false;
   });
+
   $("closePanelBtn").addEventListener("click", closePanel);
 
   function start(tryLoad) {
@@ -691,6 +714,9 @@
       state.projectiles = [];
       state.particles = [];
       state.messages = data.messages || [];
+
+      selectedBuild = null;
+      selectedBuildRecipe = null;
 
       renderHotbar();
       renderObjectives();
@@ -750,6 +776,7 @@
     state.messages = [];
 
     selectedBuild = null;
+    selectedBuildRecipe = null;
     panelMode = null;
     selectedStationBuilding = null;
 
@@ -762,6 +789,7 @@
   function generateWorld() {
     function addNode(type, x, y) {
       const def = nodeDef(type);
+
       state.nodes.push({
         id: uid(),
         type,
@@ -961,6 +989,7 @@
     if (key === "escape") {
       if (selectedBuild) {
         selectedBuild = null;
+        selectedBuildRecipe = null;
         toast("Bygging avbrutt.");
         return;
       }
@@ -1526,25 +1555,27 @@
     toast(`${BUILDINGS[building.type].name} står her.`);
   }
 
-  function placeBuilding(type, x, y) {
-    const def = BUILDINGS[type];
-    const recipe = RECIPES.find((r) => r.build === type);
+  function getBuildRecipe(type) {
+    if (selectedBuildRecipe) {
+      const selectedRecipe = RECIPES.find(
+        (recipe) => recipe.id === selectedBuildRecipe && recipe.build === type
+      );
 
-    if (!def || !recipe) return;
-
-    if (!canPay(recipe.cost)) {
-      toast(`Mangler: ${missingText(recipe.cost)}`);
-      return;
+      if (selectedRecipe) return selectedRecipe;
     }
 
-    if (!stationNear(recipe.station)) {
-      toast(`Du må stå ved ${stationName(recipe.station)}.`);
-      return;
+    return RECIPES.find((recipe) => recipe.build === type);
+  }
+
+  function canPlaceBuildingAt(type, x, y) {
+    const def = BUILDINGS[type];
+
+    if (!def) {
+      return { ok: false, reason: "Ukjent bygg." };
     }
 
     if (x < 30 || y < 30 || x > state.worldW - 30 || y > state.worldH - 30) {
-      toast("Kan ikke bygge utenfor kartet.");
-      return;
+      return { ok: false, reason: "Kan ikke bygge utenfor kartet." };
     }
 
     for (const building of state.buildings) {
@@ -1553,19 +1584,46 @@
         Math.abs(building.y - y) < (building.h + def.h) / 2 + 8;
 
       if (overlap) {
-        toast("For nær et annet bygg.");
-        return;
+        return { ok: false, reason: "For nær et annet bygg." };
       }
     }
 
     for (const node of state.nodes) {
       if (!node.depleted && dist(x, y, node.x, node.y) < 54) {
-        toast("Rydd området først.");
-        return;
+        return { ok: false, reason: "Rydd området først." };
       }
     }
 
-    pay(recipe.cost);
+    return { ok: true, reason: "Kan bygges her." };
+  }
+
+  function placeBuilding(type, x, y) {
+    const def = BUILDINGS[type];
+    const recipe = getBuildRecipe(type);
+
+    if (!def || !recipe) return;
+
+    if (!stationNear(recipe.station)) {
+      toast(`Du må stå ved ${stationName(recipe.station)}.`);
+      return;
+    }
+
+    if (!canPay(recipe.cost)) {
+      toast(`Mangler: ${missingText(recipe.cost)}`);
+      return;
+    }
+
+    const placement = canPlaceBuildingAt(type, x, y);
+
+    if (!placement.ok) {
+      toast(placement.reason);
+      return;
+    }
+
+    if (!pay(recipe.cost)) {
+      toast(`Mangler: ${missingText(recipe.cost)}`);
+      return;
+    }
 
     const building = {
       id: uid(),
@@ -1588,18 +1646,46 @@
     }
 
     selectedBuild = null;
+    selectedBuildRecipe = null;
+
     toast(`${def.name} bygget.`);
     refreshPanel();
   }
 
   function stationNear(station) {
     if (!station) return true;
-    return Boolean(nearestBuilding(state.player.x, state.player.y, 110, (b) => b.type === station));
+    return Boolean(
+      nearestBuilding(state.player.x, state.player.y, 110, (building) => {
+        return building.type === station;
+      })
+    );
   }
 
   function craft(id) {
     const recipe = RECIPES.find((r) => r.id === id);
     if (!recipe) return;
+
+    if (recipe.build) {
+      if (!stationNear(recipe.station)) {
+        toast(`Du må stå ved ${stationName(recipe.station)}.`);
+        return;
+      }
+
+      if (!canPay(recipe.cost)) {
+        toast(`Mangler: ${missingText(recipe.cost)}`);
+        return;
+      }
+
+      selectedBuild = recipe.build;
+      selectedBuildRecipe = recipe.id;
+
+      toast(
+        `Velg plassering for ${BUILDINGS[recipe.build].name}. Ressursene trekkes først når bygget plasseres.`
+      );
+
+      refreshPanel();
+      return;
+    }
 
     if (!stationNear(recipe.station)) {
       toast(`Du må stå ved ${stationName(recipe.station)}.`);
@@ -1621,11 +1707,6 @@
     if (recipe.item) {
       addItem(recipe.item, recipe.amount || 1);
       toast(`Laget ${itemName(recipe.item)} ×${recipe.amount || 1}.`);
-    }
-
-    if (recipe.build) {
-      selectedBuild = recipe.build;
-      toast(`Velg plassering for ${BUILDINGS[recipe.build].name}.`);
     }
 
     refreshPanel();
@@ -2172,7 +2253,8 @@
     const building = nearestBuilding(state.player.x, state.player.y, 72);
 
     if (selectedBuild) {
-      showHint(`Plasserer ${BUILDINGS[selectedBuild].name}. Klikk for å bygge.`);
+      const placement = canPlaceBuildingAt(selectedBuild, mouse.wx, mouse.wy);
+      showHint(placement.reason);
     } else if (node) {
       showHint(`E: ${nodeDef(node.type).name}`);
     } else if (building) {
@@ -2200,11 +2282,21 @@
 
     ctx.clearRect(0, 0, width, height);
 
-    state.camera.x = clamp(state.player.x - width / 2, 0, state.worldW - width);
-    state.camera.y = clamp(state.player.y - height / 2, 0, state.worldH - height);
+    state.camera.x = clamp(state.player.x - width / 2, 0, Math.max(0, state.worldW - width));
+    state.camera.y = clamp(state.player.y - height / 2, 0, Math.max(0, state.worldH - height));
+
+    updateMouseWorld();
+
+    if (state.camera.shake > 0) {
+      state.camera.shake = Math.max(0, state.camera.shake - 0.8);
+    }
 
     ctx.save();
-    ctx.translate(-state.camera.x, -state.camera.y);
+
+    const shakeX = state.camera.shake > 0 ? rand(-state.camera.shake, state.camera.shake) : 0;
+    const shakeY = state.camera.shake > 0 ? rand(-state.camera.shake, state.camera.shake) : 0;
+
+    ctx.translate(-state.camera.x + shakeX, -state.camera.y + shakeY);
 
     drawWorld();
     drawEntities();
@@ -2283,6 +2375,7 @@
       ctx.fillRect(-5, 4, 10, 30);
 
       ctx.fillStyle = def.color;
+
       for (const size of [28, 22, 16]) {
         ctx.beginPath();
         ctx.moveTo(0, -size - 10);
@@ -2296,20 +2389,46 @@
       ctx.beginPath();
       ctx.ellipse(0, 0, 26, 12, 0, 0, Math.PI * 2);
       ctx.fill();
+
       ctx.strokeStyle = "#9ee8ff";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.strokeStyle = "rgba(220, 250, 255, 0.55)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.ellipse(4, -2, 14, 5, -0.2, 0, Math.PI * 2);
       ctx.stroke();
     } else if (node.type === "bush") {
       ctx.fillStyle = def.color;
-      for (let i = 0; i < 5; i++) {
+
+      const leaves = [
+        [-11, 0, 11],
+        [-4, -8, 12],
+        [8, -4, 11],
+        [10, 8, 10],
+        [-5, 9, 11],
+      ];
+
+      for (const [x, y, r] of leaves) {
         ctx.beginPath();
-        ctx.arc(rand(-10, 10), rand(-8, 8), 10, 0, Math.PI * 2);
+        ctx.arc(x, y, r, 0, Math.PI * 2);
         ctx.fill();
       }
 
       ctx.fillStyle = "#b43a45";
-      ctx.beginPath();
-      ctx.arc(5, -2, 3, 0, Math.PI * 2);
-      ctx.fill();
+
+      const berries = [
+        [4, -4],
+        [11, 3],
+        [-7, 6],
+      ];
+
+      for (const [x, y] of berries) {
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
     } else {
       ctx.fillStyle = def.color;
       ctx.beginPath();
@@ -2321,13 +2440,42 @@
       ctx.closePath();
       ctx.fill();
 
+      ctx.fillStyle = "rgba(255, 255, 255, 0.18)";
+      ctx.beginPath();
+      ctx.moveTo(-14, -10);
+      ctx.lineTo(4, -20);
+      ctx.lineTo(-3, 2);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = "rgba(0, 0, 0, 0.22)";
+      ctx.beginPath();
+      ctx.moveTo(-3, 2);
+      ctx.lineTo(23, -4);
+      ctx.lineTo(18, 19);
+      ctx.closePath();
+      ctx.fill();
+
       if (node.type === "oreRock") {
         ctx.fillStyle = "#c87541";
-        for (let i = 0; i < 4; i++) {
+
+        const oreSpots = [
+          [-8, -3, 3],
+          [7, -8, 4],
+          [12, 6, 3],
+          [-1, 10, 3],
+        ];
+
+        for (const [x, y, r] of oreSpots) {
           ctx.beginPath();
-          ctx.arc(rand(-8, 13), rand(-9, 10), 3, 0, Math.PI * 2);
+          ctx.arc(x, y, r, 0, Math.PI * 2);
           ctx.fill();
         }
+
+        ctx.fillStyle = "rgba(255, 213, 150, 0.55)";
+        ctx.beginPath();
+        ctx.arc(7, -8, 1.6, 0, Math.PI * 2);
+        ctx.fill();
       }
     }
 
@@ -2386,6 +2534,13 @@
       ctx.fillRect(-12, 10, (24 * (building.waterStore || 0)) / 8, 5);
     }
 
+    if (building.hp < building.maxHp) {
+      ctx.fillStyle = "#2a1a16";
+      ctx.fillRect(-building.w / 2, -building.h / 2 - 14, building.w, 4);
+      ctx.fillStyle = "#8fd46e";
+      ctx.fillRect(-building.w / 2, -building.h / 2 - 14, building.w * (building.hp / building.maxHp), 4);
+    }
+
     ctx.restore();
   }
 
@@ -2399,6 +2554,12 @@
     ctx.font = "10px system-ui";
     ctx.textAlign = "center";
     ctx.fillText(itemName(drop.id)[0], drop.x, drop.y + 3);
+
+    if (drop.amount > 1) {
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 10px system-ui";
+      ctx.fillText(String(drop.amount), drop.x + 10, drop.y + 11);
+    }
   }
 
   function drawZombie(zombie) {
@@ -2479,15 +2640,44 @@
 
   function drawBuildGhost() {
     const def = BUILDINGS[selectedBuild];
+    if (!def) return;
 
-    ctx.globalAlpha = 0.55;
-    ctx.fillStyle = def.color;
+    const placement = canPlaceBuildingAt(selectedBuild, mouse.wx, mouse.wy);
+    const recipe = getBuildRecipe(selectedBuild);
+
+    const hasResources = recipe ? canPay(recipe.cost) : false;
+    const hasStation = recipe ? stationNear(recipe.station) : false;
+
+    const valid = placement.ok && hasResources && hasStation;
+
+    ctx.save();
+
+    ctx.globalAlpha = 0.58;
+    ctx.fillStyle = valid ? "rgba(108, 184, 106, 0.75)" : "rgba(217, 95, 95, 0.75)";
     ctx.fillRect(mouse.wx - def.w / 2, mouse.wy - def.h / 2, def.w, def.h);
 
     ctx.globalAlpha = 1;
-    ctx.strokeStyle = "#ffd166";
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = valid ? "#9fff9c" : "#ff8b8b";
+    ctx.lineWidth = 3;
+    ctx.setLineDash(valid ? [] : [7, 5]);
     ctx.strokeRect(mouse.wx - def.w / 2, mouse.wy - def.h / 2, def.w, def.h);
+    ctx.setLineDash([]);
+
+    ctx.font = "bold 13px system-ui";
+    ctx.textAlign = "center";
+    ctx.fillStyle = valid ? "#dfffd9" : "#ffd7d7";
+
+    let text = placement.reason;
+
+    if (!hasResources && recipe) {
+      text = `Mangler: ${missingText(recipe.cost)}`;
+    } else if (!hasStation && recipe) {
+      text = `Må stå ved ${stationName(recipe.station)}`;
+    }
+
+    ctx.fillText(text, mouse.wx, mouse.wy - def.h / 2 - 10);
+
+    ctx.restore();
   }
 
   function drawNight(width, height) {
