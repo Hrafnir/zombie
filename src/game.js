@@ -3,6 +3,17 @@
 
   const EM = window.EM;
 
+  const BALANCE = {
+    hungerDrain: 0.075,
+    thirstDrain: 0.105,
+    starvationDamage: 0.85,
+    healthyRegen: 0.22,
+    staminaWalkRegen: 12,
+    staminaIdleRegen: 18,
+    staminaSprintDrain: 18,
+    maxNewZombiesPerDay: 9,
+  };
+
   EM.resetWorld = function resetWorld() {
     EM.state = EM.createDefaultState();
 
@@ -35,6 +46,7 @@
     EM.dom.titleScreen.classList.remove("screen--active");
     EM.dom.helpScreen.classList.remove("screen--active");
     EM.dom.pauseScreen.classList.remove("screen--active");
+    EM.dom.gameOverScreen.classList.remove("screen--active");
     EM.dom.hud.classList.remove("hidden");
 
     EM.running = true;
@@ -42,13 +54,33 @@
     EM.lastTime = performance.now();
 
     EM.toast("Finn vann, lag hakke og bygg før natten.");
+    EM.sfx?.("start");
+
     requestAnimationFrame(EM.loop);
   };
 
   EM.togglePause = function togglePause(force) {
     EM.paused = typeof force === "boolean" ? force : !EM.paused;
     EM.dom.pauseScreen.classList.toggle("screen--active", EM.paused);
+
+    EM.sfx?.(EM.paused ? "pause" : "resume");
+
     if (EM.paused) EM.saveGame();
+  };
+
+  EM.advanceDay = function advanceDay() {
+    EM.state.day++;
+
+    const targetZombieCount = Math.min(110, 36 + EM.state.day * 7);
+    const needed = Math.max(0, targetZombieCount - EM.state.zombies.length);
+    const spawnCount = Math.min(BALANCE.maxNewZombiesPerDay, needed);
+
+    for (let i = 0; i < spawnCount; i++) {
+      EM.spawnZombie(true);
+    }
+
+    EM.toast(`Dag ${EM.state.day}. Flere zombier samles.`);
+    EM.sfx?.("newDay");
   };
 
   EM.update = function update(dt) {
@@ -61,15 +93,9 @@
 
     EM.state.time += dt * (24 * 60 / EM.state.dayLength);
 
-    if (EM.state.time >= 1440) {
+    while (EM.state.time >= 1440) {
       EM.state.time -= 1440;
-      EM.state.day++;
-
-      while (EM.state.zombies.length < Math.min(110, 36 + EM.state.day * 7)) {
-        EM.spawnZombie(true);
-      }
-
-      EM.toast(`Dag ${EM.state.day}. Flere zombier samles.`);
+      EM.advanceDay();
     }
 
     EM.updatePlayer(dt);
@@ -97,7 +123,8 @@
       (EM.isDown("w", "arrowup") ? 1 : 0);
 
     const length = Math.hypot(inputX, inputY) || 1;
-    const sprinting = EM.isDown("shift") && player.stamina > 4 && (inputX || inputY);
+    const moving = Boolean(inputX || inputY);
+    const sprinting = EM.isDown("shift") && player.stamina > 4 && moving;
     const speed = 148 * (sprinting ? 1.62 : 1);
 
     EM.movePlayer(
@@ -105,23 +132,28 @@
       player.y + (inputY / length) * speed * dt
     );
 
-    if (inputX || inputY) {
+    if (moving) {
       player.frame += dt * (sprinting ? 12 : 7);
       player.noise = Math.max(player.noise, sprinting ? 155 : 72);
-      player.stamina = EM.clamp(player.stamina + (sprinting ? -22 : 10) * dt, 0, 100);
+
+      player.stamina = EM.clamp(
+        player.stamina + (sprinting ? -BALANCE.staminaSprintDrain : BALANCE.staminaWalkRegen) * dt,
+        0,
+        100
+      );
     } else {
-      player.stamina = EM.clamp(player.stamina + 16 * dt, 0, 100);
+      player.stamina = EM.clamp(player.stamina + BALANCE.staminaIdleRegen * dt, 0, 100);
     }
 
-    player.hunger = EM.clamp(player.hunger - dt * 0.38, 0, 100);
-    player.thirst = EM.clamp(player.thirst - dt * 0.54, 0, 100);
+    player.hunger = EM.clamp(player.hunger - dt * BALANCE.hungerDrain, 0, 100);
+    player.thirst = EM.clamp(player.thirst - dt * BALANCE.thirstDrain, 0, 100);
 
     if (player.hunger <= 0 || player.thirst <= 0) {
-      player.hp = EM.clamp(player.hp - dt * 3.4, 0, 100);
+      player.hp = EM.clamp(player.hp - dt * BALANCE.starvationDamage, 0, 100);
     }
 
     if (player.hunger > 72 && player.thirst > 72) {
-      player.hp = EM.clamp(player.hp + dt * 0.65, 0, 100);
+      player.hp = EM.clamp(player.hp + dt * BALANCE.healthyRegen, 0, 100);
     }
   };
 
@@ -135,7 +167,7 @@
 
     for (const building of EM.state.buildings) {
       const def = EM.BUILDINGS[building.type];
-      if (!def.solid) continue;
+      if (!def?.solid) continue;
 
       const size = EM.buildingSize(building.type, building.rotation || 0);
 
@@ -165,12 +197,21 @@
 
     if (weapon.ammo && !EM.removeItem(weapon.ammo, 1)) {
       EM.toast(`Mangler ${EM.itemName(weapon.ammo)}.`);
+      EM.sfx?.("empty");
       return;
     }
 
     player.attackCd = weapon.cooldown;
     player.stamina = EM.clamp(player.stamina - (weapon.stamina || 0), 0, 100);
     player.noise = Math.max(player.noise, weapon.noise);
+
+    EM.sfx?.(
+      weapon.type === "projectile"
+        ? "shootLight"
+        : weapon.type === "spread"
+          ? "shootHeavy"
+          : "melee"
+    );
 
     const angle = Math.atan2(EM.mouse.wy - player.y, EM.mouse.wx - player.x);
 
@@ -185,12 +226,14 @@
         enemy: false,
         kind: "arrow",
       });
+
       return;
     }
 
     if (weapon.type === "spread") {
       for (let i = 0; i < weapon.pellets; i++) {
         const spreadAngle = angle + EM.rand(-0.26, 0.26);
+
         EM.state.projectiles.push({
           x: player.x,
           y: player.y,
@@ -202,6 +245,7 @@
           kind: "shot",
         });
       }
+
       return;
     }
 
@@ -221,6 +265,8 @@
           Math.cos(angle) * 45,
           Math.sin(angle) * 45
         );
+
+        EM.sfx?.("hitZombie");
         hit = true;
         break;
       }
@@ -243,6 +289,11 @@
 
       if (distance < 58 && deltaAngle < 0.9) {
         EM.harvest(node, true);
+
+        if (node.type === "tree") EM.sfx?.("wood");
+        else if (node.type === "rock" || node.type === "oreRock") EM.sfx?.("stone");
+        else EM.sfx?.("pickup");
+
         return;
       }
     }
@@ -263,6 +314,7 @@
             EM.state.player.hp -= projectile.damage;
             EM.state.player.iframe = 0.35;
             EM.hitEffect();
+            EM.sfx?.("hurt");
           }
 
           projectile.life = -1;
@@ -274,6 +326,7 @@
       for (const zombie of EM.state.zombies) {
         if (EM.dist(projectile.x, projectile.y, zombie.x, zombie.y) < zombie.radius + 5) {
           EM.damageZombie(zombie, projectile.damage, projectile.vx * 0.035, projectile.vy * 0.035);
+          EM.sfx?.("hitZombie");
           projectile.life = -1;
           break;
         }
@@ -298,29 +351,45 @@
     player.interactCd = 0.25;
 
     const drop = EM.nearestDrop();
+
     if (drop) {
       EM.collectDrop(drop);
+      EM.sfx?.("pickup");
       return;
     }
 
     const building = EM.nearestBuilding(player.x, player.y, 72);
+
     if (building) {
       EM.useBuilding(building);
+      EM.sfx?.("click");
       return;
     }
 
     const node = EM.nearestNode();
+
     if (node) {
       EM.harvest(node, false);
+
+      if (node.type === "tree") EM.sfx?.("wood");
+      else if (node.type === "rock" || node.type === "oreRock") EM.sfx?.("stone");
+      else if (node.type === "puddle") EM.sfx?.("water");
+      else EM.sfx?.("pickup");
+
       return;
     }
 
     EM.toast("Ingenting å bruke her.");
+    EM.sfx?.("empty");
   };
 
   EM.dodge = function dodge() {
     const player = EM.state.player;
-    if (player.stamina < 20) return;
+
+    if (player.stamina < 20) {
+      EM.sfx?.("empty");
+      return;
+    }
 
     const angle = Math.atan2(EM.mouse.wy - player.y, EM.mouse.wx - player.x);
 
@@ -331,6 +400,7 @@
 
     player.stamina -= 20;
     player.iframe = 0.25;
+    EM.sfx?.("dodge");
   };
 
   EM.selectWeapon = function selectWeapon(index) {
@@ -340,6 +410,7 @@
       EM.state.player.weapon = list[index];
       EM.renderHotbar();
       EM.toast(`Valgt: ${EM.WEAPONS[list[index]].name}`);
+      EM.sfx?.("click");
     }
   };
 
@@ -348,17 +419,27 @@
     EM.dom.hud.classList.add("hidden");
     EM.$("gameOverStats").textContent = `Du overlevde til dag ${EM.state.day}.`;
     EM.dom.gameOverScreen.classList.add("screen--active");
+    EM.sfx?.("gameOver");
   };
 
   EM.loop = function loop(time) {
     const dt = Math.min(0.05, (time - EM.lastTime) / 1000 || 0);
     EM.lastTime = time;
 
-    if (EM.running && !EM.paused) {
-      EM.update(dt);
-    }
+    try {
+      if (EM.running && !EM.paused) {
+        EM.update(dt);
+      }
 
-    EM.draw();
+      EM.draw();
+    } catch (error) {
+      console.error("Spillet stoppet av en JavaScript-feil:", error);
+
+      EM.running = false;
+      EM.paused = true;
+
+      EM.toast?.("Spillet stoppet av en feil. Åpne Console og send feilmeldingen.");
+    }
 
     EM.pressed.clear();
     EM.mouse.clicked = false;
@@ -369,8 +450,16 @@
   function bindButtons() {
     EM.$("startBtn").addEventListener("click", () => EM.start(false));
     EM.$("continueBtn").addEventListener("click", () => EM.start(true));
-    EM.$("howToBtn").addEventListener("click", () => EM.dom.helpScreen.classList.add("screen--active"));
-    EM.$("closeHelpBtn").addEventListener("click", () => EM.dom.helpScreen.classList.remove("screen--active"));
+    EM.$("howToBtn").addEventListener("click", () => {
+      EM.dom.helpScreen.classList.add("screen--active");
+      EM.sfx?.("click");
+    });
+
+    EM.$("closeHelpBtn").addEventListener("click", () => {
+      EM.dom.helpScreen.classList.remove("screen--active");
+      EM.sfx?.("click");
+    });
+
     EM.$("resumeBtn").addEventListener("click", () => EM.togglePause(false));
     EM.$("saveBtn").addEventListener("click", EM.saveGame);
 
@@ -378,13 +467,16 @@
       EM.clearSave();
       EM.resetWorld();
       EM.togglePause(false);
+      EM.sfx?.("start");
     });
 
     EM.$("restartBtn").addEventListener("click", () => {
       EM.dom.gameOverScreen.classList.remove("screen--active");
       EM.resetWorld();
       EM.running = true;
+      EM.paused = false;
       EM.dom.hud.classList.remove("hidden");
+      EM.sfx?.("start");
       requestAnimationFrame(EM.loop);
     });
 
@@ -393,9 +485,13 @@
       EM.dom.titleScreen.classList.add("screen--active");
       EM.dom.hud.classList.add("hidden");
       EM.running = false;
+      EM.sfx?.("click");
     });
 
-    EM.$("closePanelBtn").addEventListener("click", EM.closePanel);
+    EM.$("closePanelBtn").addEventListener("click", () => {
+      EM.closePanel();
+      EM.sfx?.("click");
+    });
   }
 
   EM.boot = function boot() {
