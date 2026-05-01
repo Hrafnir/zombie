@@ -3,6 +3,27 @@
 
   const EM = window.EM;
 
+  function ensureQueue(station) {
+    if (!Array.isArray(station.queue)) station.queue = [];
+    return station.queue;
+  }
+
+  EM.startStationJob = function startStationJob(station, recipe) {
+    station.job = {
+      id: recipe.id,
+      t: 0,
+      total: recipe.time,
+    };
+  };
+
+  EM.queueStationJob = function queueStationJob(station, recipe) {
+    ensureQueue(station).push({
+      id: recipe.id,
+      t: 0,
+      total: recipe.time,
+    });
+  };
+
   EM.craft = function craft(id) {
     const recipe = EM.RECIPES.find((r) => r.id === id);
     if (!recipe) return;
@@ -61,7 +82,7 @@
 
     const station =
       building ||
-      EM.nearestBuilding(EM.state.player.x, EM.state.player.y, 110, (b) => {
+      EM.nearestBuilding(EM.state.player.x, EM.state.player.y, 120, (b) => {
         return b.type === recipe.station;
       });
 
@@ -70,8 +91,8 @@
       return;
     }
 
-    if (station.job) {
-      EM.toast("Stasjonen er opptatt.");
+    if (station.type !== recipe.station) {
+      EM.toast(`Feil stasjon. Denne jobben krever ${EM.stationName(recipe.station)}.`);
       return;
     }
 
@@ -80,13 +101,16 @@
       return;
     }
 
-    station.job = {
-      id: recipe.id,
-      t: 0,
-      total: recipe.time,
-    };
+    ensureQueue(station);
 
-    EM.toast(`${recipe.name} startet.`);
+    if (!station.job) {
+      EM.startStationJob(station, recipe);
+      EM.toast(`${recipe.name} startet.`);
+    } else {
+      EM.queueStationJob(station, recipe);
+      EM.toast(`${recipe.name} lagt i kø. Kø: ${station.queue.length}`);
+    }
+
     EM.refreshPanel();
   };
 
