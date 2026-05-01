@@ -3,31 +3,47 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Etter Mørket — Zombie Survival</title>
-  <meta name="description" content="Top-down zombie survival-spill klart for GitHub Pages. Ressurser, crafting, bygging, spritesheet-animasjon og lang spillbarhet." />
+  <title>Etter Mørket — Zombie Survival v1.1</title>
+  <meta
+    name="description"
+    content="Top-down zombie survival-spill klart for GitHub Pages. Ressurser, crafting, bygging, malm, smelting, vann og baseforsvar."
+  />
   <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
   <main id="gameShell">
     <canvas id="gameCanvas" aria-label="Etter Mørket spillområde"></canvas>
 
     <section id="titleScreen" class="screen screen--active">
       <div class="titleCard">
-        <img src="assets/images/title_cover.png" alt="Etter Mørket tittelbilde" class="titleArt" />
+        <img
+          src="assets/images/title_cover.png"
+          alt="Etter Mørket tittelbilde"
+          class="titleArt"
+        />
+
         <div class="titleCopy">
-          <p class="eyebrow">Top-down survival • crafting • basebygging</p>
+          <p class="eyebrow">Top-down survival • crafting • basebygging • v1.1</p>
+
           <h1>Etter Mørket</h1>
+
           <p class="lead">
-            Du våkner ved et utbrent veikryss. Finn mat, vann og skrap. Bygg en base.
-            Lag våpen. Hold ut når natten kommer.
+            Du våkner ved et utbrent veikryss. Hogg trær, bryt store steiner,
+            finn malm, bygg smelter, rens vann og forsterk basen før natten kommer.
           </p>
+
           <div class="titleActions">
             <button id="startBtn" class="primary">Start nytt spill</button>
             <button id="continueBtn" class="secondary">Fortsett lagring</button>
             <button id="howToBtn" class="ghost">Kontroller</button>
           </div>
-          <div class="tinyNote">Musikk og lyder starter etter første klikk, slik nettlesere krever.</div>
+
+          <div class="tinyNote">
+            Nytt i v1.1: trær, store steiner, malm, hakke, smelter, vannpytter,
+            feltflaske, regnsamler, fakkel, sovepose og flere bygg.
+          </div>
         </div>
       </div>
     </section>
@@ -35,7 +51,10 @@
     <section id="pauseScreen" class="screen">
       <div class="panel modal">
         <h2>Pause</h2>
-        <p>Spillet lagres automatisk. Du kan også lagre manuelt før du lukker fanen.</p>
+        <p>
+          Spillet lagres automatisk. Du kan også lagre manuelt før du lukker fanen.
+        </p>
+
         <div class="menuButtons">
           <button id="resumeBtn" class="primary">Fortsett</button>
           <button id="saveBtn" class="secondary">Lagre nå</button>
@@ -47,20 +66,69 @@
     <section id="helpScreen" class="screen">
       <div class="panel modal modal--wide">
         <h2>Kontroller</h2>
+
         <div class="helpGrid">
-          <div><kbd>WASD</kbd> / <kbd>piltaster</kbd><span>Bevegelse</span></div>
-          <div><kbd>Shift</kbd><span>Sprint, bruker stamina</span></div>
-          <div><kbd>Mus</kbd><span>Sikt</span></div>
-          <div><kbd>Venstreklikk</kbd><span>Angrip / skyt / plasser bygg</span></div>
-          <div><kbd>E</kbd><span>Samle, loot, bruk nærmeste objekt</span></div>
-          <div><kbd>C</kbd><span>Crafting</span></div>
-          <div><kbd>B</kbd><span>Byggemeny</span></div>
-          <div><kbd>I</kbd><span>Inventory og status</span></div>
-          <div><kbd>F/V/H</kbd><span>Bruk mat / vann / førstehjelp</span></div>
-          <div><kbd>1–5</kbd><span>Velg våpen</span></div>
-          <div><kbd>Space</kbd><span>Kort dodge</span></div>
-          <div><kbd>Esc</kbd><span>Pause / lukk panel</span></div>
+          <div>
+            <kbd>WASD</kbd> / <kbd>piltaster</kbd>
+            <span>Bevegelse</span>
+          </div>
+
+          <div>
+            <kbd>Shift</kbd>
+            <span>Sprint, bruker stamina</span>
+          </div>
+
+          <div>
+            <kbd>Mus</kbd>
+            <span>Sikt</span>
+          </div>
+
+          <div>
+            <kbd>Venstreklikk</kbd>
+            <span>Angrip / skyt / plasser bygg</span>
+          </div>
+
+          <div>
+            <kbd>E</kbd>
+            <span>Samle, hogg, mine, loot eller bruk nærmeste objekt</span>
+          </div>
+
+          <div>
+            <kbd>C</kbd>
+            <span>Crafting</span>
+          </div>
+
+          <div>
+            <kbd>B</kbd>
+            <span>Byggemeny</span>
+          </div>
+
+          <div>
+            <kbd>I</kbd>
+            <span>Inventory og status</span>
+          </div>
+
+          <div>
+            <kbd>F</kbd> / <kbd>V</kbd> / <kbd>H</kbd>
+            <span>Bruk mat / vann / førstehjelp</span>
+          </div>
+
+          <div>
+            <kbd>1–6</kbd>
+            <span>Velg våpen/verktøy</span>
+          </div>
+
+          <div>
+            <kbd>Space</kbd>
+            <span>Kort dodge</span>
+          </div>
+
+          <div>
+            <kbd>Esc</kbd>
+            <span>Pause / lukk panel / avbryt bygging</span>
+          </div>
         </div>
+
         <button id="closeHelpBtn" class="primary">Tilbake</button>
       </div>
     </section>
@@ -69,6 +137,7 @@
       <div class="panel modal">
         <h2>Du ble overmannet</h2>
         <p id="gameOverStats"></p>
+
         <div class="menuButtons">
           <button id="restartBtn" class="primary">Prøv igjen</button>
           <button id="backToTitleBtn" class="secondary">Til tittel</button>
@@ -82,28 +151,53 @@
           <span class="gameLogo">ETTER MØRKET</span>
           <span id="dayLabel">Dag 1 • 08:00</span>
         </div>
+
         <div id="threatPill" class="pill">Trygt dagslys</div>
       </div>
 
       <div class="bars">
-        <label>Helse <meter id="healthMeter" min="0" max="100" value="100"></meter></label>
-        <label>Stamina <meter id="staminaMeter" min="0" max="100" value="100"></meter></label>
-        <label>Sult <meter id="hungerMeter" min="0" max="100" value="100"></meter></label>
-        <label>Tørst <meter id="thirstMeter" min="0" max="100" value="100"></meter></label>
+        <label>
+          Helse
+          <meter id="healthMeter" min="0" max="100" value="100"></meter>
+        </label>
+
+        <label>
+          Stamina
+          <meter id="staminaMeter" min="0" max="100" value="100"></meter>
+        </label>
+
+        <label>
+          Sult
+          <meter id="hungerMeter" min="0" max="100" value="100"></meter>
+        </label>
+
+        <label>
+          Tørst
+          <meter id="thirstMeter" min="0" max="100" value="100"></meter>
+        </label>
       </div>
 
       <div id="hotbar" class="hotbar"></div>
+
       <div id="objectiveBox" class="objectiveBox"></div>
+
       <div id="interactionHint" class="interactionHint hidden"></div>
+
       <div id="messageLog" class="messageLog"></div>
-      <div class="miniHelp">C craft • B bygg • I bag • F mat • V vann • H heal • E bruk</div>
+
+      <div class="miniHelp">
+        C craft • B bygg • I bag • F mat • V vann • H heal • E bruk
+      </div>
     </aside>
 
     <aside id="sidePanel" class="sidePanel hidden" aria-live="polite">
       <div class="sideHeader">
         <h2 id="sidePanelTitle">Panel</h2>
-        <button id="closePanelBtn" class="iconButton" aria-label="Lukk panel">×</button>
+        <button id="closePanelBtn" class="iconButton" aria-label="Lukk panel">
+          ×
+        </button>
       </div>
+
       <div id="sidePanelContent"></div>
     </aside>
 
@@ -111,6 +205,6 @@
     <div id="damageVignette"></div>
   </main>
 
-  <script src="src/game.js" type="module"></script>
+  <script src="src/game_v1_1.js"></script>
 </body>
 </html>
