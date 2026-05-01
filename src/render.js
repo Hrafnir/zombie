@@ -3,6 +3,25 @@
 
   const EM = window.EM;
 
+  function getDarknessAlpha() {
+    if (EM.isNight()) return 0.7;
+    return EM.twilightDarkness();
+  }
+
+  function ensureLightOverlay(width, height) {
+    if (!EM.lightOverlayCanvas) {
+      EM.lightOverlayCanvas = document.createElement("canvas");
+      EM.lightOverlayCtx = EM.lightOverlayCanvas.getContext("2d");
+    }
+
+    if (EM.lightOverlayCanvas.width !== width || EM.lightOverlayCanvas.height !== height) {
+      EM.lightOverlayCanvas.width = width;
+      EM.lightOverlayCanvas.height = height;
+    }
+
+    return EM.lightOverlayCtx;
+  }
+
   EM.draw = function draw() {
     const width = window.innerWidth;
     const height = window.innerHeight;
@@ -226,18 +245,23 @@
   };
 
   EM.drawLightGlowsInWorld = function drawLightGlowsInWorld() {
+    const darkness = getDarknessAlpha();
+    if (darkness <= 0) return;
+
     const ctx = EM.ctx;
 
     for (const building of EM.state.buildings) {
       const def = EM.BUILDINGS[building.type];
-      const light = def.light || 0;
+      let light = def.light || 0;
       if (!light) continue;
 
-      const radius = Math.min(light, 220);
+      if (building.flicker) light *= building.flicker;
+
+      const radius = Math.min(light, 240);
       const gradient = ctx.createRadialGradient(building.x, building.y, 0, building.x, building.y, radius);
 
-      gradient.addColorStop(0, "rgba(255, 170, 72, 0.32)");
-      gradient.addColorStop(0.38, "rgba(255, 122, 35, 0.14)");
+      gradient.addColorStop(0, "rgba(255, 170, 72, 0.24)");
+      gradient.addColorStop(0.38, "rgba(255, 122, 35, 0.10)");
       gradient.addColorStop(1, "rgba(255, 122, 35, 0)");
 
       ctx.fillStyle = gradient;
@@ -492,40 +516,77 @@
   };
 
   EM.drawNight = function drawNight(width, height) {
-    const ctx = EM.ctx;
-    const darkness = EM.isNight() ? 0.7 : EM.twilightDarkness();
-
+    const darkness = getDarknessAlpha();
     if (darkness <= 0) return;
 
-    ctx.save();
-    ctx.fillStyle = `rgba(2,5,9,${darkness})`;
-    ctx.fillRect(0, 0, width, height);
+    const overlayCtx = ensureLightOverlay(width, height);
+    const overlay = EM.lightOverlayCanvas;
 
-    ctx.globalCompositeOperation = "destination-out";
+    overlayCtx.clearRect(0, 0, width, height);
+
+    overlayCtx.globalCompositeOperation = "source-over";
+    overlayCtx.fillStyle = `rgba(2,5,9,${darkness})`;
+    overlayCtx.fillRect(0, 0, width, height);
+
+    overlayCtx.globalCompositeOperation = "destination-out";
 
     const lights = [
       { x: EM.state.player.x, y: EM.state.player.y, r: 145 },
       ...EM.state.buildings
         .filter((building) => EM.BUILDINGS[building.type].light)
-        .map((building) => ({
-          x: building.x,
-          y: building.y,
-          r: EM.BUILDINGS[building.type].light,
-        })),
+        .map((building) => {
+          const def = EM.BUILDINGS[building.type];
+          const flicker = building.flicker || 1;
+
+          return {
+            x: building.x,
+            y: building.y,
+            r: def.light * flicker,
+          };
+        }),
     ];
 
     for (const light of lights) {
       const x = light.x - EM.state.camera.x;
       const y = light.y - EM.state.camera.y;
 
-      const gradient = ctx.createRadialGradient(x, y, 0, x, y, light.r);
+      const gradient = overlayCtx.createRadialGradient(x, y, 0, x, y, light.r);
       gradient.addColorStop(0, "rgba(255,255,255,1)");
-      gradient.addColorStop(0.45, "rgba(255,255,255,0.55)");
+      gradient.addColorStop(0.42, "rgba(255,255,255,0.65)");
       gradient.addColorStop(1, "rgba(255,255,255,0)");
 
-      ctx.fillStyle = gradient;
+      overlayCtx.fillStyle = gradient;
+      overlayCtx.beginPath();
+      overlayCtx.arc(x, y, light.r, 0, Math.PI * 2);
+      overlayCtx.fill();
+    }
+
+    overlayCtx.globalCompositeOperation = "source-over";
+
+    EM.ctx.drawImage(overlay, 0, 0, width, height);
+
+    EM.drawWarmLightBloom(width, height, lights);
+  };
+
+  EM.drawWarmLightBloom = function drawWarmLightBloom(width, height, lights) {
+    const ctx = EM.ctx;
+
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+
+    for (const light of lights) {
+      const x = light.x - EM.state.camera.x;
+      const y = light.y - EM.state.camera.y;
+      const r = Math.min(light.r, 260);
+
+      const glow = ctx.createRadialGradient(x, y, 0, x, y, r);
+      glow.addColorStop(0, "rgba(255, 178, 82, 0.16)");
+      glow.addColorStop(0.35, "rgba(255, 121, 33, 0.07)");
+      glow.addColorStop(1, "rgba(255, 121, 33, 0)");
+
+      ctx.fillStyle = glow;
       ctx.beginPath();
-      ctx.arc(x, y, light.r, 0, Math.PI * 2);
+      ctx.arc(x, y, r, 0, Math.PI * 2);
       ctx.fill();
     }
 
