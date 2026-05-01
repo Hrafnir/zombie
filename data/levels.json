@@ -1,0 +1,518 @@
+{
+  "meta": {
+    "title": "Etter Mørket",
+    "version": "1.0.0",
+    "description": "Top-down zombie survival with procedural world, resources, crafting, base building and sprite-sheet animation."
+  },
+  "world": {
+    "seed": 133742,
+    "widthTiles": 160,
+    "heightTiles": 160,
+    "tileSize": 32,
+    "startHour": 8,
+    "dayLengthSeconds": 420,
+    "nightStart": 0.58,
+    "nightEnd": 0.94,
+    "baseRadiusTiles": 9
+  },
+  "resources": {
+    "wood": {
+      "name": "Treverk",
+      "maxStack": 999
+    },
+    "stone": {
+      "name": "Stein",
+      "maxStack": 999
+    },
+    "scrap": {
+      "name": "Skrapmetall",
+      "maxStack": 999
+    },
+    "cloth": {
+      "name": "Tøy",
+      "maxStack": 999
+    },
+    "food": {
+      "name": "Mat",
+      "maxStack": 99
+    },
+    "water": {
+      "name": "Vann",
+      "maxStack": 99
+    },
+    "herbs": {
+      "name": "Urter",
+      "maxStack": 99
+    },
+    "ammo": {
+      "name": "Ammunisjon",
+      "maxStack": 299
+    },
+    "parts": {
+      "name": "Deler",
+      "maxStack": 99
+    },
+    "arrows": {
+      "name": "Piler",
+      "maxStack": 99
+    },
+    "fuel": {
+      "name": "Drivstoff",
+      "maxStack": 99
+    }
+  },
+  "weapons": {
+    "knife": {
+      "name": "Kniv",
+      "type": "melee",
+      "damage": 18,
+      "range": 42,
+      "cooldown": 0.42,
+      "noise": 45,
+      "stamina": 5,
+      "description": "Stille nærkamp. Alltid tilgjengelig."
+    },
+    "axe": {
+      "name": "Øks",
+      "type": "melee",
+      "damage": 34,
+      "range": 48,
+      "cooldown": 0.7,
+      "noise": 70,
+      "stamina": 11,
+      "gatherBonus": 1.4,
+      "description": "God mot trær, dører og langsomme zombier."
+    },
+    "bow": {
+      "name": "Bue",
+      "type": "projectile",
+      "damage": 42,
+      "range": 480,
+      "speed": 520,
+      "cooldown": 0.72,
+      "noise": 70,
+      "ammo": "arrows",
+      "description": "Presis og relativt stille. Krever piler."
+    },
+    "pistol": {
+      "name": "Pistol",
+      "type": "projectile",
+      "damage": 46,
+      "range": 560,
+      "speed": 780,
+      "cooldown": 0.34,
+      "noise": 380,
+      "ammo": "ammo",
+      "description": "Rask, men bråkete. Skudd lokker fiender."
+    },
+    "shotgun": {
+      "name": "Hagle",
+      "type": "spread",
+      "damage": 28,
+      "pellets": 5,
+      "range": 360,
+      "speed": 690,
+      "cooldown": 0.95,
+      "noise": 520,
+      "ammo": "ammo",
+      "description": "Nærkamp på avstand. Sterk ved panikk."
+    }
+  },
+  "recipes": [
+    {
+      "id": "axe",
+      "name": "Lag øks",
+      "category": "weapon",
+      "result": {
+        "weapon": "axe"
+      },
+      "cost": {
+        "wood": 4,
+        "stone": 3,
+        "cloth": 1
+      },
+      "skill": "survival",
+      "level": 1,
+      "description": "Et skikkelig verktøy for treverk og nød-nærkamp."
+    },
+    {
+      "id": "bow",
+      "name": "Lag bue",
+      "category": "weapon",
+      "result": {
+        "weapon": "bow"
+      },
+      "cost": {
+        "wood": 8,
+        "cloth": 4
+      },
+      "skill": "survival",
+      "level": 1,
+      "description": "Lar deg felle zombier og dyr før de når deg."
+    },
+    {
+      "id": "arrows",
+      "name": "Lag 8 piler",
+      "category": "ammo",
+      "result": {
+        "item": "arrows",
+        "amount": 8
+      },
+      "cost": {
+        "wood": 3,
+        "stone": 1
+      },
+      "skill": "survival",
+      "level": 1,
+      "description": "Billig ammunisjon til buen."
+    },
+    {
+      "id": "bandage",
+      "name": "Lag bandasje",
+      "category": "medical",
+      "result": {
+        "item": "bandage",
+        "amount": 1
+      },
+      "cost": {
+        "cloth": 3,
+        "herbs": 1
+      },
+      "skill": "survival",
+      "level": 1,
+      "description": "Stopper blødning og gir litt helse tilbake."
+    },
+    {
+      "id": "medkit",
+      "name": "Lag førstehjelpspakke",
+      "category": "medical",
+      "result": {
+        "item": "medkit",
+        "amount": 1
+      },
+      "cost": {
+        "cloth": 6,
+        "herbs": 4,
+        "scrap": 2
+      },
+      "skill": "survival",
+      "level": 2,
+      "description": "Gir mye helse tilbake. Krever litt erfaring."
+    },
+    {
+      "id": "pistol",
+      "name": "Reparer pistol",
+      "category": "weapon",
+      "result": {
+        "weapon": "pistol"
+      },
+      "cost": {
+        "scrap": 14,
+        "parts": 4,
+        "cloth": 2
+      },
+      "skill": "engineering",
+      "level": 2,
+      "description": "Bråkete, men effektiv når flokken er tett på."
+    },
+    {
+      "id": "shotgun",
+      "name": "Bygg hagle",
+      "category": "weapon",
+      "result": {
+        "weapon": "shotgun"
+      },
+      "cost": {
+        "scrap": 26,
+        "parts": 10,
+        "wood": 6
+      },
+      "skill": "engineering",
+      "level": 3,
+      "description": "Høy stoppkraft. Redder basen når porten ryker."
+    },
+    {
+      "id": "ammo",
+      "name": "Press 12 patroner",
+      "category": "ammo",
+      "result": {
+        "item": "ammo",
+        "amount": 12
+      },
+      "cost": {
+        "scrap": 5,
+        "parts": 1
+      },
+      "skill": "engineering",
+      "level": 2,
+      "requires": "workbench",
+      "description": "Krever arbeidsbenk."
+    },
+    {
+      "id": "radio",
+      "name": "Reparer nødradio",
+      "category": "story",
+      "result": {
+        "story": "radio"
+      },
+      "cost": {
+        "scrap": 35,
+        "parts": 18,
+        "fuel": 6
+      },
+      "skill": "engineering",
+      "level": 3,
+      "requires": "workbench",
+      "description": "Langsiktig mål. Gir en grunn til å fortsette å utforske."
+    }
+  ],
+  "buildables": {
+    "campfire": {
+      "name": "Bål",
+      "cost": {
+        "wood": 6,
+        "stone": 4
+      },
+      "hp": 120,
+      "w": 36,
+      "h": 36,
+      "description": "Lys og trygghet. Reduserer panikksonen ved basen om natten."
+    },
+    "workbench": {
+      "name": "Arbeidsbenk",
+      "cost": {
+        "wood": 12,
+        "scrap": 8
+      },
+      "hp": 180,
+      "w": 56,
+      "h": 40,
+      "description": "Låser opp avansert crafting."
+    },
+    "barricade": {
+      "name": "Barrikade",
+      "cost": {
+        "wood": 8,
+        "scrap": 2
+      },
+      "hp": 260,
+      "w": 44,
+      "h": 26,
+      "description": "Stopper zombier, men kan rives ned."
+    },
+    "spikes": {
+      "name": "Piggfelle",
+      "cost": {
+        "wood": 7,
+        "stone": 3
+      },
+      "hp": 130,
+      "w": 42,
+      "h": 42,
+      "description": "Skader fiender som går over den."
+    },
+    "rainCollector": {
+      "name": "Regnsamler",
+      "cost": {
+        "scrap": 10,
+        "cloth": 4
+      },
+      "hp": 140,
+      "w": 42,
+      "h": 42,
+      "description": "Produserer litt vann hver dag."
+    }
+  },
+  "enemies": {
+    "walker": {
+      "name": "Vandrer",
+      "hp": 60,
+      "speed": 58,
+      "damage": 9,
+      "attackCooldown": 1.05,
+      "xp": 7,
+      "sense": 210,
+      "spriteRow": 4,
+      "loot": {
+        "cloth": [
+          0,
+          2
+        ],
+        "food": [
+          0,
+          1
+        ]
+      }
+    },
+    "runner": {
+      "name": "Løper",
+      "hp": 44,
+      "speed": 108,
+      "damage": 7,
+      "attackCooldown": 0.72,
+      "xp": 10,
+      "sense": 290,
+      "spriteRow": 5,
+      "loot": {
+        "cloth": [
+          0,
+          2
+        ],
+        "ammo": [
+          0,
+          1
+        ]
+      }
+    },
+    "brute": {
+      "name": "Kjempe",
+      "hp": 175,
+      "speed": 42,
+      "damage": 21,
+      "attackCooldown": 1.32,
+      "xp": 24,
+      "sense": 250,
+      "spriteRow": 6,
+      "loot": {
+        "scrap": [
+          1,
+          4
+        ],
+        "parts": [
+          0,
+          2
+        ]
+      }
+    },
+    "spitter": {
+      "name": "Spytter",
+      "hp": 72,
+      "speed": 48,
+      "damage": 6,
+      "attackCooldown": 1.8,
+      "xp": 16,
+      "sense": 320,
+      "spriteRow": 7,
+      "loot": {
+        "herbs": [
+          0,
+          2
+        ],
+        "ammo": [
+          0,
+          2
+        ]
+      }
+    }
+  },
+  "milestones": [
+    {
+      "id": "firstResource",
+      "text": "Samle din første ressurs."
+    },
+    {
+      "id": "firstWeapon",
+      "text": "Lag et bedre våpen."
+    },
+    {
+      "id": "firstBase",
+      "text": "Bygg bål og arbeidsbenk."
+    },
+    {
+      "id": "firstNight",
+      "text": "Overlev første natt."
+    },
+    {
+      "id": "radio",
+      "text": "Reparer nødradioen."
+    },
+    {
+      "id": "day7",
+      "text": "Overlev til dag 7."
+    }
+  ],
+  "lootTables": {
+    "crate": {
+      "wood": [
+        1,
+        5
+      ],
+      "scrap": [
+        1,
+        5
+      ],
+      "cloth": [
+        0,
+        3
+      ],
+      "parts": [
+        0,
+        2
+      ],
+      "ammo": [
+        0,
+        4
+      ]
+    },
+    "barrel": {
+      "fuel": [
+        0,
+        3
+      ],
+      "scrap": [
+        1,
+        4
+      ],
+      "water": [
+        0,
+        2
+      ]
+    },
+    "car": {
+      "scrap": [
+        4,
+        12
+      ],
+      "parts": [
+        1,
+        4
+      ],
+      "fuel": [
+        0,
+        4
+      ],
+      "ammo": [
+        0,
+        3
+      ]
+    },
+    "kitchen": {
+      "food": [
+        1,
+        4
+      ],
+      "water": [
+        0,
+        3
+      ],
+      "cloth": [
+        0,
+        2
+      ]
+    },
+    "med": {
+      "herbs": [
+        1,
+        4
+      ],
+      "cloth": [
+        1,
+        3
+      ],
+      "bandage": [
+        0,
+        1
+      ]
+    }
+  }
+}
