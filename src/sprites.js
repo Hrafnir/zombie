@@ -11,71 +11,34 @@
     drawDrop: EM.drawDrop,
   };
 
-  EM.SPRITE_SHEET_EXPECTED_WIDTH = 2048;
-  EM.SPRITE_SHEET_EXPECTED_HEIGHT = 2048;
+  EM.SPRITE_SHEET_PATH = "assets/images/survival_spritesheet.png";
 
-  EM.SPRITE_SHEET_PATH = "assets/images/survival_spritesheet.png?v=2048-20260501";
+  // Koordinatene under er målt mot originalt 2048x2048-ark.
+  // Hvis bildefilen er skalert ned/opp, skalerer drawSprite automatisk.
+  EM.SPRITE_ATLAS_BASE_W = 2048;
+  EM.SPRITE_ATLAS_BASE_H = 2048;
 
   EM.spriteSheet = new Image();
   EM.spriteSheetReady = false;
-  EM.spriteSheetError = null;
 
   EM.spriteSheet.onload = () => {
-    const width = EM.spriteSheet.naturalWidth;
-    const height = EM.spriteSheet.naturalHeight;
-
-    if (
-      width !== EM.SPRITE_SHEET_EXPECTED_WIDTH ||
-      height !== EM.SPRITE_SHEET_EXPECTED_HEIGHT
-    ) {
-      EM.spriteSheetReady = false;
-      EM.spriteSheetError = `Feil sprite sheet-dimensjon: ${width}×${height}. Forventet 2048×2048.`;
-
-      console.warn(EM.spriteSheetError);
-      console.warn("Loaded sprite sheet URL:", EM.spriteSheet.currentSrc);
-
-      if (EM.toast) {
-        EM.toast("Feil sprite sheet-fil lastet. Forventet 2048×2048 PNG.");
-      }
-
-      return;
-    }
-
     EM.spriteSheetReady = true;
-    EM.spriteSheetError = null;
-
-    console.log("Sprite sheet loaded correctly:", EM.spriteSheet.currentSrc);
-    console.log("Sprite sheet size:", width, height);
-
-    if (EM.toast) {
-      EM.toast("Sprite sheet lastet riktig.");
-    }
+    console.log(
+      "Sprite sheet loaded:",
+      EM.SPRITE_SHEET_PATH,
+      EM.spriteSheet.naturalWidth,
+      "x",
+      EM.spriteSheet.naturalHeight
+    );
   };
 
   EM.spriteSheet.onerror = () => {
     EM.spriteSheetReady = false;
-    EM.spriteSheetError = "Kunne ikke laste sprite sheet.";
-
     console.warn("Could not load sprite sheet:", EM.SPRITE_SHEET_PATH);
-
-    if (EM.toast) {
-      EM.toast("Kunne ikke laste sprite sheet.");
-    }
   };
 
-  EM.spriteSheet.src = EM.SPRITE_SHEET_PATH;
-
-  EM.debugSpritesheet = function debugSpritesheet() {
-    console.log({
-      path: EM.SPRITE_SHEET_PATH,
-      currentSrc: EM.spriteSheet.currentSrc,
-      complete: EM.spriteSheet.complete,
-      ready: EM.spriteSheetReady,
-      naturalWidth: EM.spriteSheet.naturalWidth,
-      naturalHeight: EM.spriteSheet.naturalHeight,
-      error: EM.spriteSheetError,
-    });
-  };
+  // Cache-bust for GitHub Pages, så gammel fil ikke henger igjen.
+  EM.spriteSheet.src = EM.SPRITE_SHEET_PATH + "?v=atlas_scale_fix_1";
 
   function s(x, y, w, h, dw, dh) {
     return { x, y, w, h, dw, dh };
@@ -177,7 +140,19 @@
   };
 
   function canUseSprites() {
-    return EM.spriteSheetReady && EM.spriteSheet.complete && !EM.spriteSheetError;
+    return EM.spriteSheetReady && EM.spriteSheet.complete && EM.spriteSheet.naturalWidth > 0;
+  }
+
+  function scaledSourceRect(sprite) {
+    const scaleX = EM.spriteSheet.naturalWidth / EM.SPRITE_ATLAS_BASE_W;
+    const scaleY = EM.spriteSheet.naturalHeight / EM.SPRITE_ATLAS_BASE_H;
+
+    return {
+      sx: Math.round(sprite.x * scaleX),
+      sy: Math.round(sprite.y * scaleY),
+      sw: Math.round(sprite.w * scaleX),
+      sh: Math.round(sprite.h * scaleY),
+    };
   }
 
   function drawShadow(x, y, w, h, alpha = 0.28) {
@@ -192,4 +167,264 @@
   }
 
   function drawSprite(sprite, x, y, options = {}) {
-    if (!sprite ||
+    if (!sprite || !canUseSprites()) return false;
+
+    const ctx = EM.ctx;
+    const dw = options.dw || sprite.dw || sprite.w;
+    const dh = options.dh || sprite.dh || sprite.h;
+    const alpha = options.alpha ?? 1;
+    const rotation = options.rotation || 0;
+    const flipX = Boolean(options.flipX);
+    const anchor = options.anchor || "center";
+    const source = scaledSourceRect(sprite);
+
+    if (source.sw <= 0 || source.sh <= 0) return false;
+
+    let dx = -dw / 2;
+    let dy = -dh / 2;
+
+    if (anchor === "feet") {
+      dx = -dw / 2;
+      dy = -dh + 14;
+    }
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rotation);
+
+    if (flipX) {
+      ctx.scale(-1, 1);
+    }
+
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(
+      EM.spriteSheet,
+      source.sx,
+      source.sy,
+      source.sw,
+      source.sh,
+      dx,
+      dy,
+      dw,
+      dh
+    );
+
+    ctx.restore();
+    return true;
+  }
+
+  function directionFromAngle(angle) {
+    if (angle > -Math.PI / 4 && angle <= Math.PI / 4) return "right";
+    if (angle > Math.PI / 4 && angle <= (3 * Math.PI) / 4) return "down";
+    if (angle < -Math.PI / 4 && angle >= (-3 * Math.PI) / 4) return "up";
+    return "left";
+  }
+
+  function animationFrame(frameValue, max = 3) {
+    return Math.abs(Math.floor(frameValue || 0)) % max;
+  }
+
+  function isPlayerMoving() {
+    return EM.isDown("w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright");
+  }
+
+  EM.drawPlayer = function drawPlayerSprite() {
+    if (!canUseSprites()) {
+      fallback.drawPlayer();
+      return;
+    }
+
+    const player = EM.state.player;
+    const angle = Math.atan2(EM.mouse.wy - player.y, EM.mouse.wx - player.x);
+    const dir = directionFromAngle(angle);
+    const moving = isPlayerMoving();
+
+    let sprite;
+    let flipX = false;
+
+    if (!moving) {
+      sprite = EM.SPRITES.survivor.idle;
+    } else if (dir === "left") {
+      sprite = EM.SPRITES.survivor.right[animationFrame(player.frame, 3)];
+      flipX = true;
+    } else {
+      const list = EM.SPRITES.survivor[dir] || EM.SPRITES.survivor.down;
+      sprite = list[animationFrame(player.frame, list.length)];
+    }
+
+    drawShadow(player.x, player.y, sprite.dw, sprite.dh, 0.32);
+    drawSprite(sprite, player.x, player.y, {
+      anchor: "feet",
+      flipX,
+      alpha: player.iframe > 0 ? 0.58 : 1,
+    });
+  };
+
+  EM.drawZombie = function drawZombieSprite(zombie) {
+    if (!canUseSprites()) {
+      fallback.drawZombie(zombie);
+      return;
+    }
+
+    const angle = Math.atan2(
+      (zombie.targetY || zombie.y) - zombie.y,
+      (zombie.targetX || zombie.x) - zombie.x
+    );
+
+    const dir = directionFromAngle(angle);
+
+    let sprite;
+    let flipX = false;
+
+    if (dir === "left") {
+      sprite = EM.SPRITES.zombie.right[animationFrame(zombie.frame, 3)];
+      flipX = true;
+    } else {
+      const list = EM.SPRITES.zombie[dir] || EM.SPRITES.zombie.down;
+      sprite = list[animationFrame(zombie.frame, list.length)] || EM.SPRITES.zombie.idle;
+    }
+
+    const scale =
+      zombie.type === "brute" ? 1.22 :
+      zombie.type === "runner" ? 0.92 :
+      zombie.type === "spitter" ? 1.04 :
+      1;
+
+    drawShadow(zombie.x, zombie.y, sprite.dw * scale, sprite.dh * scale, 0.32);
+
+    drawSprite(sprite, zombie.x, zombie.y, {
+      anchor: "feet",
+      flipX,
+      dw: sprite.dw * scale,
+      dh: sprite.dh * scale,
+    });
+
+    if (zombie.hp < zombie.maxHp) {
+      const ctx = EM.ctx;
+      ctx.fillStyle = "#351";
+      ctx.fillRect(zombie.x - 20, zombie.y - 70 * scale, 40, 5);
+
+      ctx.fillStyle = "#d35d5d";
+      ctx.fillRect(zombie.x - 20, zombie.y - 70 * scale, 40 * (zombie.hp / zombie.maxHp), 5);
+    }
+  };
+
+  EM.drawNode = function drawNodeSprite(node) {
+    if (!canUseSprites()) {
+      fallback.drawNode(node);
+      return;
+    }
+
+    const sprite = EM.SPRITES.nodes[node.type];
+
+    if (!sprite) {
+      fallback.drawNode(node);
+      return;
+    }
+
+    drawShadow(node.x, node.y, sprite.dw, sprite.dh, 0.24);
+    drawSprite(sprite, node.x, node.y, {
+      rotation: node.rotation || 0,
+    });
+  };
+
+  function buildingSpriteKey(building) {
+    if (building.type === "woodWall") {
+      const quarterTurn = Math.abs(Math.round((building.rotation || 0) / (Math.PI / 2))) % 2 === 1;
+      return quarterTurn ? "woodWallV" : "woodWallH";
+    }
+
+    if (building.type === "stoneWall") {
+      const quarterTurn = Math.abs(Math.round((building.rotation || 0) / (Math.PI / 2))) % 2 === 1;
+      return quarterTurn ? "stoneWallV" : "stoneWallH";
+    }
+
+    return building.type;
+  }
+
+  EM.drawBuilding = function drawBuildingSprite(building) {
+    if (!canUseSprites()) {
+      fallback.drawBuilding(building);
+      return;
+    }
+
+    const key = buildingSpriteKey(building);
+    const sprite = EM.SPRITES.buildings[key];
+
+    if (!sprite) {
+      fallback.drawBuilding(building);
+      return;
+    }
+
+    drawShadow(building.x, building.y, sprite.dw, sprite.dh, 0.25);
+    drawSprite(sprite, building.x, building.y);
+
+    const ctx = EM.ctx;
+    const size = EM.buildingSize(building.type, building.rotation || 0);
+
+    if (building.job) {
+      ctx.fillStyle = "#2a1a16";
+      ctx.fillRect(building.x - size.w / 2, building.y - size.h / 2 - 16, size.w, 5);
+
+      ctx.fillStyle = "#ffd166";
+      ctx.fillRect(
+        building.x - size.w / 2,
+        building.y - size.h / 2 - 16,
+        size.w * (building.job.t / building.job.total),
+        5
+      );
+    }
+
+    if (building.type === "rainCollector") {
+      ctx.fillStyle = "#bdefff";
+      ctx.fillRect(building.x - 14, building.y + 18, (28 * (building.waterStore || 0)) / 8, 5);
+    }
+
+    if (building.hp < building.maxHp) {
+      ctx.fillStyle = "#2a1a16";
+      ctx.fillRect(building.x - size.w / 2, building.y - size.h / 2 - 24, size.w, 5);
+
+      ctx.fillStyle = "#8fd46e";
+      ctx.fillRect(
+        building.x - size.w / 2,
+        building.y - size.h / 2 - 24,
+        size.w * (building.hp / building.maxHp),
+        5
+      );
+    }
+  };
+
+  EM.drawDrop = function drawDropSprite(drop) {
+    if (!canUseSprites()) {
+      fallback.drawDrop(drop);
+      return;
+    }
+
+    const sprite = EM.SPRITES.items[drop.id];
+
+    if (!sprite) {
+      fallback.drawDrop(drop);
+      return;
+    }
+
+    drawShadow(drop.x, drop.y, sprite.dw, sprite.dh, 0.2);
+    drawSprite(sprite, drop.x, drop.y);
+
+    if (drop.amount > 1) {
+      const ctx = EM.ctx;
+
+      ctx.save();
+      ctx.font = "bold 11px system-ui";
+      ctx.textAlign = "center";
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "rgba(0,0,0,0.75)";
+      ctx.fillStyle = "#ffffff";
+
+      const text = String(drop.amount);
+      ctx.strokeText(text, drop.x + sprite.dw * 0.35, drop.y + sprite.dh * 0.35);
+      ctx.fillText(text, drop.x + sprite.dw * 0.35, drop.y + sprite.dh * 0.35);
+
+      ctx.restore();
+    }
+  };
+})();
