@@ -3,22 +3,6 @@
 
   const EM = window.EM;
 
-  /*
-    buildings.js
-    Ansvar:
-    - plassering av bygg
-    - rotasjon/footprint
-    - reparasjon
-    - riving/refund
-    - stasjoner
-    - regnsamler
-    - lysregistrering
-    - byggevalidering
-
-    Denne fila er kompatibel med resten av refaktoreringen:
-    core.js, data.js, state.js, world.js, crafting.js, enemies.js, ui.js, render.js, input.js, game.js
-  */
-
   EM.buildingSize = function buildingSize(type, rotation = 0) {
     const def = EM.BUILDINGS[type];
     if (!def) return { w: 0, h: 0 };
@@ -223,6 +207,7 @@
       maxHp: def.hp,
       waterStore: 0,
       job: null,
+      queue: [],
       rotation: EM.selectedBuildRotation,
       builtDay: EM.state.day,
       builtTime: EM.state.time,
@@ -269,6 +254,7 @@
       building.type === "campfire" ||
       building.type === "smelter"
     ) {
+      if (!Array.isArray(building.queue)) building.queue = [];
       EM.showStation(building);
       return;
     }
@@ -350,6 +336,8 @@
     const def = EM.BUILDINGS[building.type];
     const recipe = EM.RECIPES.find((r) => r.build === building.type);
 
+    refundStationQueue(building);
+
     if (recipe?.cost) {
       const hpRatio = EM.clamp(building.hp / building.maxHp, 0.1, 1);
       const refundRatio = 0.25 + hpRatio * 0.25;
@@ -368,8 +356,32 @@
     EM.refreshPanel();
   };
 
+  function refundStationQueue(building) {
+    if (!building.job && !Array.isArray(building.queue)) return;
+
+    const jobs = [];
+
+    if (building.job) jobs.push(building.job);
+    if (Array.isArray(building.queue)) jobs.push(...building.queue);
+
+    for (const job of jobs) {
+      const recipe = EM.REFINING.find((r) => r.id === job.id);
+      if (!recipe) continue;
+
+      for (const [id, amount] of Object.entries(recipe.cost)) {
+        EM.addItem(id, amount);
+      }
+    }
+
+    if (jobs.length > 0) {
+      EM.toast(`Kø og aktiv jobb avbrutt. Ressurser fra ${jobs.length} jobb(er) returnert.`);
+    }
+  }
+
   EM.updateBuildings = function updateBuildings(dt) {
     for (const building of EM.state.buildings) {
+      if (!Array.isArray(building.queue)) building.queue = [];
+
       updateStationJob(building, dt);
       updatePassiveBuilding(building, dt);
     }
@@ -386,12 +398,16 @@
   };
 
   function updateStationJob(building, dt) {
-    if (!building.job) return;
+    if (!building.job) {
+      startNextQueuedJob(building);
+      return;
+    }
 
     const recipe = EM.REFINING.find((r) => r.id === building.job.id);
 
     if (!recipe) {
       building.job = null;
+      startNextQueuedJob(building);
       return;
     }
 
@@ -404,8 +420,33 @@
 
       EM.toast(`Ferdig: ${EM.costText(recipe.output)}`);
       building.job = null;
+
+      startNextQueuedJob(building);
       EM.refreshPanel();
     }
+  }
+
+  function startNextQueuedJob(building) {
+    if (!Array.isArray(building.queue)) building.queue = [];
+    if (building.job) return;
+    if (building.queue.length === 0) return;
+
+    const next = building.queue.shift();
+    const recipe = EM.REFINING.find((r) => r.id === next.id);
+
+    if (!recipe) {
+      startNextQueuedJob(building);
+      return;
+    }
+
+    building.job = {
+      id: recipe.id,
+      t: 0,
+      total: recipe.time,
+    };
+
+    EM.toast(`Neste jobb startet: ${recipe.name}`);
+    EM.refreshPanel();
   }
 
   function updatePassiveBuilding(building, dt) {
@@ -480,6 +521,7 @@
       stations: 0,
       beds: 0,
       water: 0,
+      queuedJobs: 0,
     };
 
     for (const building of EM.state.buildings) {
@@ -491,6 +533,8 @@
       if (def.light) value.lights++;
       if (building.type === "bedroll") value.beds++;
       if (building.type === "rainCollector") value.water += Math.floor(building.waterStore || 0);
+      if (Array.isArray(building.queue)) value.queuedJobs += building.queue.length;
+      if (building.job) value.queuedJobs++;
     }
 
     return value;
