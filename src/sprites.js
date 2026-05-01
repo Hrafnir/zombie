@@ -12,9 +12,6 @@
   };
 
   EM.SPRITE_SHEET_PATH = "assets/images/survival_spritesheet.png";
-
-  // Koordinatene under er målt mot originalt 2048x2048-ark.
-  // Hvis bildefilen er skalert ned/opp, skalerer drawSprite automatisk.
   EM.SPRITE_ATLAS_BASE_W = 2048;
   EM.SPRITE_ATLAS_BASE_H = 2048;
 
@@ -37,8 +34,7 @@
     console.warn("Could not load sprite sheet:", EM.SPRITE_SHEET_PATH);
   };
 
-  // Cache-bust for GitHub Pages, så gammel fil ikke henger igjen.
-  EM.spriteSheet.src = EM.SPRITE_SHEET_PATH + "?v=atlas_scale_fix_1";
+  EM.spriteSheet.src = EM.SPRITE_SHEET_PATH + "?v=grounding_fix_2";
 
   function s(x, y, w, h, dw, dh) {
     return { x, y, w, h, dw, dh };
@@ -83,16 +79,6 @@
       ],
     },
 
-    weapons: {
-      knife: s(65, 590, 174, 193, 42, 46),
-      axe: s(344, 576, 204, 213, 48, 50),
-      pickaxe: s(654, 589, 189, 203, 48, 50),
-      spear: s(937, 579, 166, 215, 44, 54),
-      bow: s(1213, 589, 171, 208, 44, 54),
-      pistol: s(1471, 624, 196, 143, 52, 38),
-      shotgun: s(1732, 604, 278, 166, 66, 40),
-    },
-
     nodes: {
       tree: s(42, 826, 261, 271, 140, 146),
       bush: s(411, 856, 253, 221, 116, 102),
@@ -114,7 +100,6 @@
       spikes: s(39, 1432, 295, 194, 86, 62),
       rainCollector: s(423, 1423, 287, 218, 86, 66),
       bedroll: s(823, 1436, 330, 196, 86, 54),
-      metalIngotLarge: s(1277, 1459, 228, 163, 70, 50),
       storage: s(1691, 1435, 238, 179, 78, 58),
     },
 
@@ -155,13 +140,27 @@
     };
   }
 
-  function drawShadow(x, y, w, h, alpha = 0.28) {
+  function drawShadow(x, y, w, h, options = {}) {
     const ctx = EM.ctx;
+    const alpha = options.alpha ?? 0.22;
+    const yOffset = options.yOffset ?? 6;
+    const rx = options.rx ?? w * 0.24;
+    const ry = options.ry ?? h * 0.055;
 
     ctx.save();
-    ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+    ctx.fillStyle = `rgba(0,0,0,${alpha})`;
     ctx.beginPath();
-    ctx.ellipse(x, y + h * 0.32, w * 0.35, h * 0.09, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, y + yOffset, rx, ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawGroundContact(x, y, w = 24) {
+    const ctx = EM.ctx;
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.16)";
+    ctx.beginPath();
+    ctx.ellipse(x, y + 2, w * 0.45, 4, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
@@ -176,6 +175,7 @@
     const rotation = options.rotation || 0;
     const flipX = Boolean(options.flipX);
     const anchor = options.anchor || "center";
+    const footLift = options.footLift ?? 0;
     const source = scaledSourceRect(sprite);
 
     if (source.sw <= 0 || source.sh <= 0) return false;
@@ -185,16 +185,14 @@
 
     if (anchor === "feet") {
       dx = -dw / 2;
-      dy = -dh + 14;
+      dy = -dh + footLift;
     }
 
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(rotation);
 
-    if (flipX) {
-      ctx.scale(-1, 1);
-    }
+    if (flipX) ctx.scale(-1, 1);
 
     ctx.globalAlpha = alpha;
     ctx.drawImage(
@@ -224,8 +222,17 @@
     return Math.abs(Math.floor(frameValue || 0)) % max;
   }
 
-  function isPlayerMoving() {
-    return EM.isDown("w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright");
+  function movementDirection() {
+    const x =
+      (EM.isDown("d", "arrowright") ? 1 : 0) -
+      (EM.isDown("a", "arrowleft") ? 1 : 0);
+
+    const y =
+      (EM.isDown("s", "arrowdown") ? 1 : 0) -
+      (EM.isDown("w", "arrowup") ? 1 : 0);
+
+    if (x === 0 && y === 0) return null;
+    return directionFromAngle(Math.atan2(y, x));
   }
 
   EM.drawPlayer = function drawPlayerSprite() {
@@ -235,28 +242,51 @@
     }
 
     const player = EM.state.player;
-    const angle = Math.atan2(EM.mouse.wy - player.y, EM.mouse.wx - player.x);
-    const dir = directionFromAngle(angle);
-    const moving = isPlayerMoving();
+    const moveDir = movementDirection();
+    const aimDir = directionFromAngle(
+      Math.atan2(EM.mouse.wy - player.y, EM.mouse.wx - player.x)
+    );
+
+    const dir = moveDir || aimDir || "down";
 
     let sprite;
     let flipX = false;
 
-    if (!moving) {
-      sprite = EM.SPRITES.survivor.idle;
+    if (!moveDir) {
+      if (dir === "left") {
+        sprite = EM.SPRITES.survivor.right[1];
+        flipX = true;
+      } else if (dir === "right") {
+        sprite = EM.SPRITES.survivor.right[1];
+      } else if (dir === "up") {
+        sprite = EM.SPRITES.survivor.up[1];
+      } else {
+        sprite = EM.SPRITES.survivor.down[1];
+      }
     } else if (dir === "left") {
       sprite = EM.SPRITES.survivor.right[animationFrame(player.frame, 3)];
       flipX = true;
+    } else if (dir === "right") {
+      sprite = EM.SPRITES.survivor.right[animationFrame(player.frame, 3)];
     } else {
       const list = EM.SPRITES.survivor[dir] || EM.SPRITES.survivor.down;
       sprite = list[animationFrame(player.frame, list.length)];
     }
 
-    drawShadow(player.x, player.y, sprite.dw, sprite.dh, 0.32);
+    drawShadow(player.x, player.y, sprite.dw, sprite.dh, {
+      alpha: 0.18,
+      yOffset: 7,
+      rx: sprite.dw * 0.22,
+      ry: 4.5,
+    });
+
+    drawGroundContact(player.x, player.y + 2, 22);
+
     drawSprite(sprite, player.x, player.y, {
       anchor: "feet",
+      footLift: 6,
       flipX,
-      alpha: player.iframe > 0 ? 0.58 : 1,
+      alpha: player.iframe > 0 ? 0.6 : 1,
     });
   };
 
@@ -279,6 +309,8 @@
     if (dir === "left") {
       sprite = EM.SPRITES.zombie.right[animationFrame(zombie.frame, 3)];
       flipX = true;
+    } else if (dir === "right") {
+      sprite = EM.SPRITES.zombie.right[animationFrame(zombie.frame, 3)];
     } else {
       const list = EM.SPRITES.zombie[dir] || EM.SPRITES.zombie.down;
       sprite = list[animationFrame(zombie.frame, list.length)] || EM.SPRITES.zombie.idle;
@@ -290,10 +322,18 @@
       zombie.type === "spitter" ? 1.04 :
       1;
 
-    drawShadow(zombie.x, zombie.y, sprite.dw * scale, sprite.dh * scale, 0.32);
+    drawShadow(zombie.x, zombie.y, sprite.dw * scale, sprite.dh * scale, {
+      alpha: 0.2,
+      yOffset: 7,
+      rx: sprite.dw * scale * 0.24,
+      ry: 4.5,
+    });
+
+    drawGroundContact(zombie.x, zombie.y + 2, 20 * scale);
 
     drawSprite(sprite, zombie.x, zombie.y, {
       anchor: "feet",
+      footLift: 6,
       flipX,
       dw: sprite.dw * scale,
       dh: sprite.dh * scale,
@@ -322,10 +362,42 @@
       return;
     }
 
-    drawShadow(node.x, node.y, sprite.dw, sprite.dh, 0.24);
-    drawSprite(sprite, node.x, node.y, {
-      rotation: node.rotation || 0,
-    });
+    const isFlat = node.type === "puddle";
+    const footLift =
+      node.type === "tree" ? 4 :
+      node.type === "bush" ? 4 :
+      node.type === "rock" ? 4 :
+      node.type === "oreRock" ? 4 :
+      node.type === "scrapPile" ? 4 :
+      0;
+
+    if (isFlat) {
+      drawShadow(node.x, node.y, sprite.dw, sprite.dh, {
+        alpha: 0.08,
+        yOffset: 0,
+        rx: sprite.dw * 0.38,
+        ry: 6,
+      });
+
+      drawSprite(sprite, node.x, node.y + 2, {
+        anchor: "center",
+      });
+    } else {
+      drawShadow(node.x, node.y, sprite.dw, sprite.dh, {
+        alpha: 0.16,
+        yOffset: 7,
+        rx: sprite.dw * 0.26,
+        ry: 5,
+      });
+
+      drawGroundContact(node.x, node.y + 2, 26);
+
+      drawSprite(sprite, node.x, node.y, {
+        anchor: "feet",
+        footLift,
+        rotation: node.rotation || 0,
+      });
+    }
   };
 
   function buildingSpriteKey(building) {
@@ -356,8 +428,30 @@
       return;
     }
 
-    drawShadow(building.x, building.y, sprite.dw, sprite.dh, 0.25);
-    drawSprite(sprite, building.x, building.y);
+    const footLift =
+      building.type === "torch" ? 4 :
+      building.type === "campfire" ? 2 :
+      building.type === "spikes" ? 4 :
+      building.type === "woodWall" ? 4 :
+      building.type === "stoneWall" ? 4 :
+      building.type === "bedroll" ? 0 :
+      4;
+
+    const isFlat = building.type === "bedroll";
+
+    drawShadow(building.x, building.y, sprite.dw, sprite.dh, {
+      alpha: isFlat ? 0.08 : 0.18,
+      yOffset: isFlat ? 2 : 7,
+      rx: isFlat ? sprite.dw * 0.36 : sprite.dw * 0.26,
+      ry: isFlat ? 6 : 5,
+    });
+
+    if (!isFlat) drawGroundContact(building.x, building.y + 2, 24);
+
+    drawSprite(sprite, building.x, building.y, {
+      anchor: isFlat ? "center" : "feet",
+      footLift,
+    });
 
     const ctx = EM.ctx;
     const size = EM.buildingSize(building.type, building.rotation || 0);
@@ -407,8 +501,17 @@
       return;
     }
 
-    drawShadow(drop.x, drop.y, sprite.dw, sprite.dh, 0.2);
-    drawSprite(sprite, drop.x, drop.y);
+    drawShadow(drop.x, drop.y, sprite.dw, sprite.dh, {
+      alpha: 0.12,
+      yOffset: 5,
+      rx: sprite.dw * 0.22,
+      ry: 3.5,
+    });
+
+    drawSprite(sprite, drop.x, drop.y, {
+      anchor: "feet",
+      footLift: 2,
+    });
 
     if (drop.amount > 1) {
       const ctx = EM.ctx;
@@ -421,8 +524,8 @@
       ctx.fillStyle = "#ffffff";
 
       const text = String(drop.amount);
-      ctx.strokeText(text, drop.x + sprite.dw * 0.35, drop.y + sprite.dh * 0.35);
-      ctx.fillText(text, drop.x + sprite.dw * 0.35, drop.y + sprite.dh * 0.35);
+      ctx.strokeText(text, drop.x + sprite.dw * 0.35, drop.y + sprite.dh * 0.15);
+      ctx.fillText(text, drop.x + sprite.dw * 0.35, drop.y + sprite.dh * 0.15);
 
       ctx.restore();
     }
