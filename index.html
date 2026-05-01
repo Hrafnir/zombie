@@ -4,11 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
-  <title>Etter Mørket — Zombie Survival v1.1.1</title>
+  <title>Etter Mørket — Zombie Survival v1.2</title>
 
   <meta
     name="description"
-    content="Top-down zombie survival-spill klart for GitHub Pages. Ressurser, crafting, bygging, malm, smelting, vann og baseforsvar."
+    content="Top-down zombie survival-spill med ressurser, crafting, bygging, malm, smelting, vann, lys og baseforsvar."
   />
 
   <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml" />
@@ -29,7 +29,7 @@
 
         <div class="titleCopy">
           <p class="eyebrow">
-            Top-down survival • crafting • basebygging • v1.1.1
+            Top-down survival • crafting • basebygging • v1.2
           </p>
 
           <h1>Etter Mørket</h1>
@@ -46,8 +46,7 @@
           </div>
 
           <div class="tinyNote">
-            v1.1.1: Fikset flimrende busker/malmstein, trygg bygging uten tap av
-            ressurser ved feil plassering, og grønn/rød forhåndsvisning av bygg.
+            Refaktorert v1.2: spillet er delt i mindre filer for enklere videreutvikling.
           </div>
         </div>
       </div>
@@ -97,7 +96,7 @@
 
           <div>
             <kbd>E</kbd>
-            <span>Samle, hogg, mine, loot eller bruk nærmeste objekt</span>
+            <span>Samle, hogg, mine, loot, reparer eller bruk objekt</span>
           </div>
 
           <div>
@@ -123,6 +122,16 @@
           <div>
             <kbd>1–6</kbd>
             <span>Velg våpen eller verktøy</span>
+          </div>
+
+          <div>
+            <kbd>R</kbd>
+            <span>Roter valgt bygg</span>
+          </div>
+
+          <div>
+            <kbd>X</kbd>
+            <span>Riv nærmeste bygg</span>
           </div>
 
           <div>
@@ -199,7 +208,7 @@
       <div id="messageLog" class="messageLog"></div>
 
       <div class="miniHelp">
-        C craft • B bygg • I bag • F mat • V vann • H heal • E bruk • Esc avbryt
+        C craft • B bygg • I bag • F mat • V vann • H heal • R roter • X riv • E bruk
       </div>
     </aside>
 
@@ -219,6 +228,16 @@
     <div id="damageVignette"></div>
   </main>
 
-  <script src="src/game_v1_1.js"></script>
+  <script src="src/core.js"></script>
+  <script src="src/data.js"></script>
+  <script src="src/state.js"></script>
+  <script src="src/world.js"></script>
+  <script src="src/buildings.js"></script>
+  <script src="src/crafting.js"></script>
+  <script src="src/enemies.js"></script>
+  <script src="src/ui.js"></script>
+  <script src="src/render.js"></script>
+  <script src="src/input.js"></script>
+  <script src="src/game.js"></script>
 </body>
 </html>
