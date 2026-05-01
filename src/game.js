@@ -557,6 +557,7 @@ class World {
     this.loot.push(new LootDrop("stone", 4, c.x + 12, c.y + 68));
     this.loot.push(new LootDrop("food", 2, c.x - 32, c.y + 54));
     this.loot.push(new LootDrop("water", 2, c.x - 56, c.y + 52));
+    this.loot.push(new LootDrop("cloth", 3, c.x - 16, c.y + 82));
   }
 
   damageObject(obj, amount) {
@@ -905,10 +906,12 @@ class Zombie {
     this.anim += dt * 8;
 
     const dPlayer = dist(this.x, this.y, player.x, player.y);
-    const hearsNoise = game.noiseEvents.some(n => dist(this.x, this.y, n.x, n.y) < n.radius);
-    let targetX = player.x;
-    let targetY = player.y;
-    let chasing = dPlayer < this.def.sense || hearsNoise || game.isNight;
+    const senseMultiplier = game.isHordeNight ? 1.55 : (game.isNight ? 1.25 : 1);
+    const senseRadius = (this.def.sense || 180) * senseMultiplier;
+    const heard = game.noiseEvents.find(n => dist(this.x, this.y, n.x, n.y) < n.radius);
+    let targetX = heard ? heard.x : player.x;
+    let targetY = heard ? heard.y : player.y;
+    let chasing = dPlayer < senseRadius || Boolean(heard);
 
     if (!chasing) {
       this.wanderTimer -= dt;
@@ -1148,6 +1151,7 @@ class Game {
     this.storyFlags = new Set();
     this.hordeAnnouncedForDay = new Set();
     this.rng = new RNG(33);
+    this.panelDirty = false;
 
     this.bindUI();
   }
@@ -1328,12 +1332,28 @@ class Game {
 
   handleGlobalInput() {
     if (this.input.wasPressed("escape")) {
-      if (this.sideMode) this.closeSidePanel();
+      if (this.buildSelection) {
+        this.buildSelection = null;
+        this.toast("Bygging avbrutt.");
+      } else if (this.sideMode) this.closeSidePanel();
       else this.pause();
     }
     if (this.input.wasPressed("c")) this.toggleSidePanel("craft");
     if (this.input.wasPressed("b")) this.toggleSidePanel("build");
     if (this.input.wasPressed("i")) this.toggleSidePanel("inventory");
+
+    if (this.input.wasPressed("f")) {
+      if (!this.player.consume("food", this)) this.toast("Ingen mat i inventory.");
+      else this.markPanelDirty();
+    }
+    if (this.input.wasPressed("v")) {
+      if (!this.player.consume("water", this)) this.toast("Ikke noe vann i inventory.");
+      else this.markPanelDirty();
+    }
+    if (this.input.wasPressed("h")) {
+      if (!this.player.consume("bandage", this) && !this.player.consume("medkit", this)) this.toast("Ingen bandasje eller førstehjelpspakke.");
+      else this.markPanelDirty();
+    }
   }
 
   pause() {
@@ -1361,11 +1381,23 @@ class Game {
 
   closeSidePanel() {
     this.sideMode = null;
+    this.panelDirty = false;
     document.getElementById("sidePanel").classList.add("hidden");
+  }
+
+  markPanelDirty() {
+    this.panelDirty = true;
+  }
+
+  refreshSidePanelIfNeeded() {
+    if (this.sideMode && this.panelDirty) {
+      this.renderSidePanel();
+    }
   }
 
   renderSidePanel() {
     if (!this.sideMode) return;
+    this.panelDirty = false;
     const title = document.getElementById("sidePanelTitle");
     const content = document.getElementById("sidePanelContent");
     if (this.sideMode === "craft") {
@@ -1389,7 +1421,8 @@ class Game {
       content.innerHTML = this.renderInventoryHTML();
       content.querySelectorAll("[data-use]").forEach(btn => {
         btn.addEventListener("click", () => {
-          this.player.consume(btn.dataset.use, this);
+          const used = this.player.consume(btn.dataset.use, this);
+          if (!used) this.toast("Kan ikke bruke denne nå.");
           this.renderSidePanel();
         });
       });
@@ -1462,6 +1495,7 @@ class Game {
       </section>
       <section class="panelSection">
         <h3>Ressurser</h3>
+        <p class="recipeDesc">Hurtigbruk: F = mat, V = vann, H = bandasje/førstehjelp.</p>
         ${items.length ? items.map(([id, amount]) => `
           <div class="inventoryRow">
             <span>${formatItemName(this.config, id)}</span>
@@ -1626,7 +1660,7 @@ class Game {
     if (skillUp) this.toast(skillUp);
     this.assets.play("pickup", 0.5);
     this.message(gained.length ? `Du fant ${gained.join(", ")}.` : `${obj.name} var nesten tom.`);
-    this.renderSidePanel();
+    this.markPanelDirty();
   }
 
   handleLootPickup(dt) {
@@ -1638,6 +1672,7 @@ class Game {
         this.addFloatingText(`+${drop.amount} ${formatItemName(this.config, drop.item)}`, this.player.x, this.player.y - 28, "#fff5d3");
         this.assets.play("pickup", 0.25, 1.1 + Math.random() * 0.4);
         this.player.milestones.add("firstResource");
+        this.markPanelDirty();
       } else if (d < 120) {
         const n = normalize(this.player.x - drop.x, this.player.y - drop.y);
         drop.x += n.x * 70 * dt;
@@ -1684,6 +1719,7 @@ class Game {
     }));
     this.assets.play("build", 0.65);
     this.message(`Du bygget ${def.name}.`);
+    this.markPanelDirty();
     if (this.buildSelection === "campfire" || this.buildSelection === "workbench") this.player.milestones.add("firstBase");
     this.player.addXP(7, "engineering");
     this.buildSelection = null;
@@ -1840,7 +1876,8 @@ class Game {
     document.getElementById("objectiveBox").innerHTML = `<strong>Neste mål</strong>${this.currentObjective()}`;
     this.renderHotbar();
 
-    if (this.sideMode) this.renderSidePanel();
+    // Sidepanelet må ikke tegnes på nytt hvert frame; da mister knappene klikk-eventer.
+    this.refreshSidePanelIfNeeded();
   }
 
   renderHotbar() {

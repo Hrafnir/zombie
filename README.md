@@ -70,9 +70,20 @@ http://localhost:8000
 | C | Crafting |
 | B | Byggemeny |
 | I | Inventory og status |
+| F | Bruk mat fra inventory |
+| V | Bruk vann fra inventory |
+| H | Bruk bandasje/førstehjelpspakke |
 | 1–5 | Velg våpen |
 | Space | Dodge |
 | Esc | Pause / lukk panel |
+
+## Endringer i versjon 1.0.1
+
+- Fikset crafting-, inventory- og byggknapper ved å stoppe kontinuerlig nytegning av sidepanelet.
+- Lagt inn hurtigbruk av inventory: `F` for mat, `V` for vann og `H` for bandasje/førstehjelp.
+- Fikset byggemodus slik at `Esc` avbryter plassering før pausemenyen åpnes.
+- Redusert zombie-aggro: zombier jager ikke lenger automatisk på uendelig avstand om natten.
+- Lagt til litt start-tøy i nærheten av spawn, slik at tidlig crafting blir mindre låst.
 
 ## Designnotater
 

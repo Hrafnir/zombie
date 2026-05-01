@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "Etter Mørket",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Top-down zombie survival with procedural world, resources, crafting, base building and sprite-sheet animation."
   },
   "world": {
@@ -331,7 +331,7 @@
       "damage": 9,
       "attackCooldown": 1.05,
       "xp": 7,
-      "sense": 210,
+      "sense": 150,
       "spriteRow": 4,
       "loot": {
         "cloth": [
@@ -351,7 +351,7 @@
       "damage": 7,
       "attackCooldown": 0.72,
       "xp": 10,
-      "sense": 290,
+      "sense": 190,
       "spriteRow": 5,
       "loot": {
         "cloth": [
@@ -371,7 +371,7 @@
       "damage": 21,
       "attackCooldown": 1.32,
       "xp": 24,
-      "sense": 250,
+      "sense": 165,
       "spriteRow": 6,
       "loot": {
         "scrap": [
@@ -391,7 +391,7 @@
       "damage": 6,
       "attackCooldown": 1.8,
       "xp": 16,
-      "sense": 320,
+      "sense": 210,
       "spriteRow": 7,
       "loot": {
         "herbs": [
