@@ -530,7 +530,7 @@ meter::-webkit-meter-even-less-good-value {
   background: rgba(255, 255, 255, 0.16);
 }
 
-/* New v1.1 UI rows */
+/* Panel tabs and crafting/build rows */
 
 .panelTabs {
   position: sticky;
@@ -681,7 +681,7 @@ meter::-webkit-meter-even-less-good-value {
   opacity: 1;
 }
 
-/* Responsive */
+/* Mobile and smaller screens */
 
 @media (max-width: 920px) {
   .titleCard {
